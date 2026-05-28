@@ -356,7 +356,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
   </div>
 
   <nav class="bottom-nav">
-    <button class="nav-item active" onclick="switchTab('today',this)"><i class="ti ti-home"></i><span>Hoy</span></button>
+    <button class="nav-item active" onclick="switchTab('today',this)"><i class="ti ti-calendar"></i><span>Diario</span></button>
     <button class="nav-item" onclick="switchTab('routines',this)"><i class="ti ti-barbell"></i><span>Rutinas</span></button>
     <button class="nav-item" onclick="switchTab('ai',this)"><i class="ti ti-brain"></i><span>IA</span></button>
     <button class="nav-item" onclick="switchTab('history',this)"><i class="ti ti-chart-bar"></i><span>Stats</span></button>
@@ -1407,18 +1407,26 @@ Responde en español, conciso, máximo 150 palabras. Sin JSON ni formatos especi
     console.log('msg:', msg, '| wantsAction:', wantsAction);
     let actionResults = '';
     if(wantsAction){
+      const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
+      const tomorrowStr = tomorrow.toISOString().split('T')[0];
       const actionPrompt = `El usuario pidió: "${msg}"
 Rutinas existentes: ${routineDetails.join(' | ')||'ninguna'}
+Hoy es ${todayStr()}. Mañana es ${tomorrowStr}.
+
+IMPORTANTE - distingue bien estos casos:
+- "añade/aplica/pon la rutina X a [fecha/dia]" = quiere poner los ejercicios de esa rutina en ese dia del calendario = ACTION_APPLY_ROUTINE
+- "cambia los dias de la rutina X" o "que la rutina X sea los lunes" = quiere cambiar cuando se repite = ACTION_UPDATE_DAYS
+
 Responde ÚNICAMENTE con UNA línea en este formato exacto, sin texto adicional:
+ACTION_APPLY_ROUTINE|nombre_rutina|YYYY-MM-DD  (para añadir ejercicios de una rutina a un dia)
 ACTION_CREATE_ROUTINE|nombre|dias(ej:0,2,4)|ej1:series:reps:peso,ej2:series:reps:peso
 ACTION_ADD_EXERCISES|nombre_rutina|ej1:series:reps:peso,ej2:series:reps:peso
 ACTION_UPDATE_EXERCISE|nombre_ejercicio|series|reps|peso
-ACTION_UPDATE_DAYS|nombre_rutina|0,1,2
+ACTION_UPDATE_DAYS|nombre_rutina|0,1,2  (solo para cambiar los dias recurrentes de la rutina)
 ACTION_CREATE_HABIT|nombre|meta|dias
 ACTION_CREATE_TASK|nombre|YYYY-MM-DD
-ACTION_APPLY_ROUTINE|nombre_rutina|YYYY-MM-DD
-Dias: 0=Lun 1=Mar 2=Mie 3=Jue 4=Vie 5=Sab 6=Dom
-Hoy es ${todayStr()}. Si dicen "hoy" usa la fecha de hoy, si dicen un dia de la semana o fecha especifica calcula la fecha correcta en formato YYYY-MM-DD.
+Dias semana: 0=Lun 1=Mar 2=Mie 3=Jue 4=Vie 5=Sab 6=Dom
+Si dicen "hoy" usa ${todayStr()}, "mañana" usa ${tomorrowStr}, otros dias calcula la fecha YYYY-MM-DD.
 Si no hay accion clara responde exactamente: NO_ACTION`;
 
       const res2 = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
