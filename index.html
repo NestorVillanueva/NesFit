@@ -1249,57 +1249,74 @@ async function clearAIMemory(){
   }catch(e){showToast('Error');}
 }
 
-async function executeAIAction(action){
+async function executeAIAction(actionLine){
   try{
-    const a=JSON.parse(action);
-    if(a.type==='create_routine'){
-      const rt=await api('POST','/rest/v1/routines',{user_id:userId,name:a.name,days:a.days||[]});
+    const parts=actionLine.trim().split('|');
+    const type=parts[0];
+
+    if(type==='ACTION_CREATE_ROUTINE'){
+      const name=parts[1];
+      const days=(parts[2]||'').split(',').map(d=>d.trim()).filter(d=>d!=='');
+      const exParts=(parts[3]||'').split(',').filter(e=>e.trim());
+      const exercises=exParts.map(e=>{const p=e.split(':');return{name:p[0]?.trim(),sets:parseInt(p[1])||null,reps:parseInt(p[2])||null,weight:p[3]?.trim()||null};}).filter(e=>e.name);
+      const rt=await api('POST','/rest/v1/routines',{user_id:userId,name,days});
       const rtId=rt[0]?.id;
-      if(rtId&&a.exercises){
-        for(let i=0;i<a.exercises.length;i++){
-          const e=a.exercises[i];
-          await api('POST','/rest/v1/exercises',{user_id:userId,routine_id:rtId,name:e.name,sets:e.sets||null,reps:e.reps||null,weight:e.weight||null,order_index:i});
+      if(rtId&&exercises.length){
+        for(let i=0;i<exercises.length;i++){
+          await api('POST','/rest/v1/exercises',{user_id:userId,routine_id:rtId,...exercises[i],order_index:i});
         }
       }
-      return `✅ Rutina "${a.name}" creada con ${(a.exercises||[]).length} ejercicios.`;
+      return `✅ Rutina "${name}" creada con ${exercises.length} ejercicios.`;
     }
-    if(a.type==='add_exercise_to_routine'){
-      const rts=await api('GET',`/rest/v1/routines?user_id=eq.${userId}&name=ilike.*${a.routine_name}*&select=id,name`);
-      if(!rts.length)return `❌ No encontré la rutina "${a.routine_name}".`;
+
+    if(type==='ACTION_ADD_EXERCISES'){
+      const routineName=parts[1];
+      const rts=await api('GET',`/rest/v1/routines?user_id=eq.${userId}&name=ilike.*${encodeURIComponent(routineName)}*&select=id,name&limit=1`);
+      if(!rts.length)return `❌ No encontré la rutina "${routineName}".`;
       const rtId=rts[0].id;
       const existing=await api('GET',`/rest/v1/exercises?routine_id=eq.${rtId}&select=order_index&order=order_index.desc&limit=1`);
-      const nextIdx=(existing[0]?.order_index||0)+1;
-      for(let i=0;i<a.exercises.length;i++){
-        const e=a.exercises[i];
-        await api('POST','/rest/v1/exercises',{user_id:userId,routine_id:rtId,name:e.name,sets:e.sets||null,reps:e.reps||null,weight:e.weight||null,order_index:nextIdx+i});
+      const nextIdx=((existing[0]?.order_index)||0)+1;
+      const exParts=(parts[2]||'').split(',').filter(e=>e.trim());
+      const exercises=exParts.map(e=>{const p=e.split(':');return{name:p[0]?.trim(),sets:parseInt(p[1])||null,reps:parseInt(p[2])||null,weight:p[3]?.trim()||null};}).filter(e=>e.name);
+      for(let i=0;i<exercises.length;i++){
+        await api('POST','/rest/v1/exercises',{user_id:userId,routine_id:rtId,...exercises[i],order_index:nextIdx+i});
       }
-      return `✅ ${a.exercises.length} ejercicio(s) añadido(s) a "${rts[0].name}".`;
+      return `✅ ${exercises.length} ejercicio(s) añadido(s) a "${rts[0].name}".`;
     }
-    if(a.type==='update_exercise'){
-      const exs=await api('GET',`/rest/v1/exercises?user_id=eq.${userId}&name=ilike.*${a.exercise_name}*&select=id,name&limit=1`);
-      if(!exs.length)return `❌ No encontré el ejercicio "${a.exercise_name}".`;
+
+    if(type==='ACTION_UPDATE_EXERCISE'){
+      const exName=parts[1];
+      const exs=await api('GET',`/rest/v1/exercises?user_id=eq.${userId}&name=ilike.*${encodeURIComponent(exName)}*&select=id,name&limit=1`);
+      if(!exs.length)return `❌ No encontré el ejercicio "${exName}".`;
       const upd={};
-      if(a.sets)upd.sets=a.sets;
-      if(a.reps)upd.reps=a.reps;
-      if(a.weight)upd.weight=a.weight;
+      if(parts[2]&&parseInt(parts[2]))upd.sets=parseInt(parts[2]);
+      if(parts[3]&&parseInt(parts[3]))upd.reps=parseInt(parts[3]);
+      if(parts[4]&&parts[4].trim())upd.weight=parts[4].trim();
       await api('PATCH',`/rest/v1/exercises?id=eq.${exs[0].id}&user_id=eq.${userId}`,upd);
-      return `✅ Ejercicio "${exs[0].name}" actualizado.`;
+      return `✅ "${exs[0].name}" actualizado.`;
     }
-    if(a.type==='update_routine_days'){
-      const rts=await api('GET',`/rest/v1/routines?user_id=eq.${userId}&name=ilike.*${a.routine_name}*&select=id,name&limit=1`);
-      if(!rts.length)return `❌ No encontré la rutina "${a.routine_name}".`;
-      await api('PATCH',`/rest/v1/routines?id=eq.${rts[0].id}&user_id=eq.${userId}`,{days:a.days});
-      return `✅ Días de "${rts[0].name}" actualizados.`;
+
+    if(type==='ACTION_UPDATE_DAYS'){
+      const routineName=parts[1];
+      const days=(parts[2]||'').split(',').map(d=>d.trim()).filter(d=>d!=='');
+      const rts=await api('GET',`/rest/v1/routines?user_id=eq.${userId}&name=ilike.*${encodeURIComponent(routineName)}*&select=id,name&limit=1`);
+      if(!rts.length)return `❌ No encontré la rutina "${routineName}".`;
+      await api('PATCH',`/rest/v1/routines?id=eq.${rts[0].id}&user_id=eq.${userId}`,{days});
+      return `✅ Días de "${rts[0].name}" actualizados a ${days.map(d=>['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][d]).join(', ')}.`;
     }
-    if(a.type==='create_habit'){
-      await api('POST','/rest/v1/habits',{user_id:userId,name:a.name,goal:a.goal||null,active:true,notify_time:a.days||null});
-      return `✅ Hábito "${a.name}" creado.`;
+
+    if(type==='ACTION_CREATE_HABIT'){
+      const name=parts[1],goal=parts[2]||null,days=parts[3]||null;
+      await api('POST','/rest/v1/habits',{user_id:userId,name,goal,active:true,notify_time:days});
+      return `✅ Hábito "${name}" creado.`;
     }
-    if(a.type==='create_task'){
-      await api('POST','/rest/v1/tasks',{user_id:userId,name:a.name,date:a.date||todayStr(),done:false});
-      return `✅ Tarea "${a.name}" creada para ${a.date||'hoy'}.`;
+
+    if(type==='ACTION_CREATE_TASK'){
+      const name=parts[1],date=parts[2]||todayStr();
+      await api('POST','/rest/v1/tasks',{user_id:userId,name,date,done:false});
+      return `✅ Tarea "${name}" para ${date}.`;
     }
-  }catch(e){return '❌ Error ejecutando acción: '+e.message;}
+  }catch(e){return '❌ Error: '+e.message;}
   return null;
 }
 
@@ -1346,13 +1363,14 @@ Hábitos activos: ${habitsList || 'ninguno'}
 Tareas pendientes: ${tasksList || 'ninguna'}
 
 ACCIONES DISPONIBLES: Puedes modificar la app directamente. Si el usuario pide crear/modificar rutinas, ejercicios, hábitos o tareas, incluye al FINAL de tu respuesta un bloque JSON con el formato:
-ACTION:{"type":"create_routine","name":"Nombre","days":["0","1"],"exercises":[{"name":"Sentadilla","sets":4,"reps":10,"weight":"80kg"}]}
-ACTION:{"type":"add_exercise_to_routine","routine_name":"Nombre rutina","exercises":[{"name":"Ejercicio","sets":3,"reps":12}]}
-ACTION:{"type":"update_exercise","exercise_name":"Nombre","sets":4,"reps":8,"weight":"90kg"}
-ACTION:{"type":"update_routine_days","routine_name":"Nombre","days":["0","2","4"]}
-ACTION:{"type":"create_habit","name":"Nombre","goal":"Meta","days":"0,1,2,3,4"}
-ACTION:{"type":"create_task","name":"Nombre","date":"2026-05-29"}
-Solo incluye ACTION si el usuario pide explícitamente una acción. Responde en español, conciso, máximo 200 palabras.`;
+ACCIONES - usa EXACTAMENTE este formato, una por linea, sin espacios extra:
+Para crear rutina: ACTION_CREATE_ROUTINE|nombre|dias(0=Lun,1=Mar,2=Mie,3=Jue,4=Vie,5=Sab,6=Dom separados por coma)|ejercicio1:series:reps:peso,ejercicio2:series:reps:peso
+Para añadir ejercicios: ACTION_ADD_EXERCISES|nombre_rutina|ejercicio1:series:reps:peso,ejercicio2:series:reps:peso
+Para actualizar ejercicio: ACTION_UPDATE_EXERCISE|nombre_ejercicio|series|reps|peso
+Para cambiar dias rutina: ACTION_UPDATE_DAYS|nombre_rutina|0,1,2
+Para crear habito: ACTION_CREATE_HABIT|nombre|meta|dias(0,1,2...)
+Para crear tarea: ACTION_CREATE_TASK|nombre|fecha(YYYY-MM-DD)
+Solo incluye la linea ACTION si el usuario pide explicitamente crear o modificar algo. Primero responde en texto normal, luego pon la ACTION en linea separada. Responde en español, maximo 150 palabras.`;
 
     const res = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
       method: 'POST',
