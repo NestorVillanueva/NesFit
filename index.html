@@ -366,9 +366,31 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
       <label class="form-label">Nombre</label>
       <input type="text" id="mi-name" placeholder="Ej: Press banca, Agua 2L..."/>
     </div>
-    <div class="form-row">
+    <div class="form-row" id="mi-gym-fields" style="display:none">
+      <label class="form-label">Series</label>
+      <input type="number" id="mi-sets" class="inp" placeholder="4" min="1" style="margin-bottom:8px"/>
+      <label class="form-label">Reps / Tiempo</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input type="text" id="mi-reps" class="inp" placeholder="10 reps o 30s" style="flex:1"/>
+        <select id="mi-rep-type" class="inp" style="width:120px">
+          <option value="reps">Reps</option>
+          <option value="tiempo">Tiempo</option>
+          <option value="unilateral">Unilateral</option>
+        </select>
+      </div>
+      <label class="form-label">Peso</label>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="mi-weight" class="inp" placeholder="60kg" style="flex:1"/>
+        <select id="mi-weight-type" class="inp" style="width:140px">
+          <option value="kg">Peso (kg)</option>
+          <option value="corporal">Peso corporal</option>
+          <option value="banda">Banda elástica</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row" id="mi-other-fields">
       <label class="form-label" id="mi-detail-label">Detalle</label>
-      <input type="text" id="mi-detail" placeholder="3×10 reps, 8h de sueño..."/>
+      <input type="text" id="mi-detail" placeholder="Meta o descripción..."/>
     </div>
     <div class="modal-actions">
       <button class="btn-cl" onclick="closeModals()">Cancelar</button>
@@ -531,18 +553,27 @@ async function loadToday(){
   document.getElementById('day-name').textContent=DAYS_ES[dow].toUpperCase();
   document.getElementById('day-date').textContent=fmtDate(today);
   try{
-    const[logs,habits,tasks,routines]=await Promise.all([
+    const[logs,habits,tasks,routines,exercises]=await Promise.all([
       api('GET',`/rest/v1/daily_logs?user_id=eq.${userId}&date=eq.${today}&select=*`),
       api('GET',`/rest/v1/habits?user_id=eq.${userId}&active=eq.true&select=*`),
       api('GET',`/rest/v1/tasks?user_id=eq.${userId}&date=eq.${today}&select=*`),
       api('GET',`/rest/v1/routines?user_id=eq.${userId}&select=*,exercises(*)`),
+      api('GET',`/rest/v1/exercises?user_id=eq.${userId}&select=*`),
     ]);
     const todayRoutines=routines.filter(r=>r.days&&r.days.includes(String(dow)));
     const gymItems=[];
+    const usedExIds=new Set();
     todayRoutines.forEach(r=>(r.exercises||[]).forEach(e=>{
       const log=logs.find(l=>l.exercise_id===e.id);
       gymItems.push({...e,done:log?log.done:false,log_id:log?.id,type:'gym'});
+      usedExIds.add(e.id);
     }));
+    // Also show standalone exercises logged for today
+    const todayExLogs=logs.filter(l=>l.exercise_id&&!usedExIds.has(l.exercise_id));
+    for(const log of todayExLogs){
+      const ex=exercises.find(e=>e.id===log.exercise_id);
+      if(ex){gymItems.push({...ex,done:log.done,log_id:log.id,type:'gym'});}
+    }
     const habitItems=habits.map(h=>{const log=logs.find(l=>l.habit_id===h.id);return{...h,done:log?log.done:false,log_id:log?.id,type:'habit'};});
     const taskItems=tasks.map(t=>({...t,type:'task'}));
     renderSection('today-gym',gymItems,'gym',today);
@@ -564,7 +595,7 @@ function renderSection(cid,items,cat,today){
       </div>
       <div class="item-body">
         <div class="item-name">${item.name}</div>
-        ${item.sets?`<div class="item-meta">${item.sets} × ${item.reps||'?'} reps${item.weight?' · '+item.weight:''}</div>`:item.goal?`<div class="item-meta">${item.goal}</div>`:''}
+        ${item.sets?`<div class="item-meta">${item.sets} × ${item.reps||'?'}${item.weight?' · '+item.weight:''}</div>`:item.goal?`<div class="item-meta">${item.goal}</div>`:''}
       </div>
       <span class="tag tag-${cat}">${cat==='gym'?'Gym':cat==='habit'?'Hábito':'Tarea'}</span>
       ${cat==='task'?`<button class="item-del" onclick="event.stopPropagation();delTask('${item.id}')"><i class="ti ti-x"></i></button>`:''}
@@ -609,12 +640,27 @@ async function delTask(id){
 
 function openQuickAdd(cat){
   const titles={gym:'Añadir ejercicio',habit:'Nuevo hábito',task:'Nueva tarea'};
-  const labels={gym:'Series × Reps × Peso (ej: 3×10×60kg)',habit:'Meta o duración',task:'Descripción (opcional)'};
   document.getElementById('modal-item-title').textContent=titles[cat];
-  document.getElementById('mi-detail-label').textContent=labels[cat];
   document.getElementById('mi-cat').value=cat;
   document.getElementById('mi-name').value='';
   document.getElementById('mi-detail').value='';
+  // Show gym-specific fields or generic detail
+  const gymFields=document.getElementById('mi-gym-fields');
+  const otherFields=document.getElementById('mi-other-fields');
+  if(cat==='gym'){
+    gymFields.style.display='block';
+    otherFields.style.display='none';
+    document.getElementById('mi-sets').value='';
+    document.getElementById('mi-reps').value='';
+    document.getElementById('mi-weight').value='';
+    document.getElementById('mi-rep-type').value='reps';
+    document.getElementById('mi-weight-type').value='kg';
+  } else {
+    gymFields.style.display='none';
+    otherFields.style.display='block';
+    const labels={habit:'Meta o duración',task:'Descripción (opcional)'};
+    document.getElementById('mi-detail-label').textContent=labels[cat]||'Detalle';
+  }
   document.getElementById('modal-item').classList.add('open');
   setTimeout(()=>document.getElementById('mi-name').focus(),200);
 }
@@ -630,9 +676,22 @@ async function saveQuickItem(){
     } else if(cat==='habit'){
       await api('POST','/rest/v1/habits',{user_id:userId,name,goal:detail,active:true});
     } else {
-      const p=detail.split('×').map(s=>s.trim());
-      const ex=await api('POST','/rest/v1/exercises',{user_id:userId,routine_id:null,name,sets:parseInt(p[0])||null,reps:parseInt(p[1])||null,weight:p[2]||null,order_index:0});
-      if(ex[0])await api('POST','/rest/v1/daily_logs',{user_id:userId,date:todayStr(),exercise_id:ex[0].id,done:false});
+      const sets=parseInt(document.getElementById('mi-sets').value)||null;
+      const repsVal=document.getElementById('mi-reps').value.trim();
+      const repType=document.getElementById('mi-rep-type').value;
+      const weightVal=document.getElementById('mi-weight').value.trim();
+      const weightType=document.getElementById('mi-weight-type').value;
+      let repsText=repsVal;
+      if(repType==='tiempo')repsText=repsVal+(repsVal.includes('s')||repsVal.includes('min')?'':' seg');
+      if(repType==='unilateral')repsText=repsVal+' c/lado';
+      let weightText=weightVal;
+      if(weightType==='corporal')weightText='Peso corporal';
+      if(weightType==='banda')weightText='Banda elástica';
+      const exData={user_id:userId,routine_id:null,name,sets:sets,reps:parseInt(repsVal)||null,weight:weightText||null,order_index:0};
+      const ex=await api('POST','/rest/v1/exercises',exData);
+      if(ex&&ex[0]){
+        await api('POST','/rest/v1/daily_logs',{user_id:userId,date:todayStr(),exercise_id:ex[0].id,done:false,notes:(repType!=='reps'?repType+': ':'')+repsText});
+      }
     }
     closeModals();loadToday();showToast('Añadido ✓');
   }catch(e){showToast('Error: '+e.message);}
@@ -659,6 +718,7 @@ async function loadRoutines(){
           </div>
         </div>
         <div class="routine-body" id="rb-${rt.id}">
+          <button onclick="applyRoutineToday('${rt.id}')" style="width:100%;background:var(--accent);border:none;border-radius:10px;color:#060608;cursor:pointer;font-family:'Archivo Black',sans-serif;font-size:13px;padding:10px;margin-bottom:10px"><i class="ti ti-plus"></i> Aplicar rutina a hoy</button>
           ${!(rt.exercises||[]).length?'<div class="empty">Sin ejercicios</div>':(rt.exercises||[]).sort((a,b)=>a.order_index-b.order_index).map((e,i)=>`
             <div class="ex-row">
               <div class="ex-num">${i+1}</div>
@@ -1001,7 +1061,6 @@ Da una recomendación MUY CONCISA (máximo 3 líneas) de qué debería entrenar 
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
         max_tokens: 200,
         messages: [{role: 'user', content: prompt}]
       })
@@ -1065,7 +1124,6 @@ Responde siempre en español, de forma concisa y práctica. Usa emojis con moder
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
         max_tokens: 400,
         system: systemPrompt,
         messages: aiChatHistory.slice(-6)
@@ -1082,6 +1140,27 @@ Responde siempre en español, de forma concisa y práctica. Usa emojis con moder
   aiLoading = false;
   chatEl.scrollTop = chatEl.scrollHeight;
 }
+
+async function applyRoutineToday(routineId){
+  try{
+    const today=todayStr();
+    const routines=await api('GET',`/rest/v1/routines?id=eq.${routineId}&user_id=eq.${userId}&select=*,exercises(*)`);
+    if(!routines.length){showToast('Rutina no encontrada');return;}
+    const exs=routines[0].exercises||[];
+    if(!exs.length){showToast('La rutina no tiene ejercicios');return;}
+    const existingLogs=await api('GET',`/rest/v1/daily_logs?user_id=eq.${userId}&date=eq.${today}&select=exercise_id`);
+    const existingIds=new Set(existingLogs.map(l=>l.exercise_id));
+    let added=0;
+    for(const e of exs){
+      if(!existingIds.has(e.id)){
+        await api('POST','/rest/v1/daily_logs',{user_id:userId,date:today,exercise_id:e.id,done:false});
+        added++;
+      }
+    }
+    showToast(added>0?'Rutina aplicada: '+added+' ejercicios añadidos':'Ejercicios ya estaban en el día');
+  }catch(e){showToast('Error: '+e.message);}
+}
+
 // ========== END AI MODULE ==========
 
 // ========== PROFILE MODULE ==========
