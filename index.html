@@ -265,7 +265,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
       <div id="suggest-wrap"></div>
       <div class="section-row">
         <span class="section-label">Ejercicios de hoy</span>
-        <button class="add-btn" onclick="openQuickAdd('gym')"><i class="ti ti-plus"></i></button>
+        <div style="display:flex;gap:6px">
+          <button class="add-btn" title="Añadir rutina" onclick="openApplyRoutineModal()" style="width:auto;padding:0 10px;font-family:'Archivo',sans-serif;font-size:11px;gap:4px;display:flex;align-items:center"><i class="ti ti-list-check" style="font-size:16px"></i></button>
+          <button class="add-btn" onclick="openQuickAdd('gym')"><i class="ti ti-plus"></i></button>
+        </div>
       </div>
       <div id="today-gym"><div class="loading">Cargando</div></div>
       <div class="section-row">
@@ -514,6 +517,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
         <button class="day-btn edit-day-btn" data-day="6">Dom</button>
       </div>
     </div>
+    <div class="form-row">
+      <label class="form-label">Ejercicios</label>
+      <div id="edit-ex-list"></div>
+      <button class="add-ex-btn" onclick="addEditExRow()"><i class="ti ti-plus"></i> Añadir ejercicio</button>
+    </div>
     <div class="modal-actions">
       <button class="btn-cl" onclick="closeModals()">Cancelar</button>
       <button class="btn-save" onclick="saveEditRoutine()">Guardar</button>
@@ -573,6 +581,48 @@ Lunges 3x10"></textarea>
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- MODAL APPLY ROUTINE TO TODAY -->
+<div class="modal-bg" id="modal-apply-routine">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Añadir rutina a hoy</div>
+    <div id="apply-routine-list"><div class="loading">Cargando</div></div>
+    <button class="btn-cl" style="width:100%;margin-top:10px" onclick="closeModals()">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL EDIT DAY EXERCISE -->
+<div class="modal-bg" id="modal-day-exercise">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="day-ex-title">Ejercicio del día</div>
+    <input type="hidden" id="day-ex-id"/>
+    <input type="hidden" id="day-log-id"/>
+    <input type="hidden" id="day-ex-date"/>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Edita los valores reales que hiciste hoy. No modifica la rutina base.</p>
+    <div class="form-row">
+      <label class="form-label">Series</label>
+      <input type="number" id="day-ex-sets" class="inp" placeholder="4" min="1"/>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Reps</label>
+      <input type="text" id="day-ex-reps" class="inp" placeholder="10"/>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Peso</label>
+      <input type="text" id="day-ex-weight" class="inp" placeholder="60kg"/>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Notas del día</label>
+      <input type="text" id="day-ex-notes" class="inp" placeholder="Sensaciones, técnica..."/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cl" onclick="closeModals()">Cancelar</button>
+      <button class="btn-save" onclick="saveDayExercise()">Guardar</button>
+    </div>
+  </div>
+</div>
 <script>
 const SUPA_URL='https://rlzvprwvklsrnhxeapjo.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsenZwcnd2a2xzcm5oeGVhcGpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4ODcyMjIsImV4cCI6MjA5NTQ2MzIyMn0.x9EWqpwS_aRjIkViDr3-ELM07Oiukaptwi69Ccbefiw';
@@ -703,17 +753,18 @@ async function loadToday(){
     ]);
     const todayRoutines=routines.filter(r=>r.days&&r.days.includes(String(dow)));
     const gymItems=[];
+    function parseDayMeta(n){try{if(n&&n.startsWith('{'))return JSON.parse(n);}catch(e){}return null;}
     const usedExIds=new Set();
     todayRoutines.forEach(r=>(r.exercises||[]).forEach(e=>{
       const log=logs.find(l=>l.exercise_id===e.id);
-      gymItems.push({...e,done:log?log.done:false,log_id:log?.id,type:'gym'});
+      gymItems.push({...e,done:log?log.done:false,log_id:log?.id,_dm:parseDayMeta(log?.notes),type:'gym'});
       usedExIds.add(e.id);
     }));
     // Also show standalone exercises logged for today
     const todayExLogs=logs.filter(l=>l.exercise_id&&!usedExIds.has(l.exercise_id));
     for(const log of todayExLogs){
       const ex=exercises.find(e=>e.id===log.exercise_id);
-      if(ex){gymItems.push({...ex,done:log.done,log_id:log.id,type:'gym'});}
+      if(ex){gymItems.push({...ex,done:log.done,log_id:log.id,_dm:parseDayMeta(log?.notes),type:'gym'});}
     }
     const habitItems=habits.filter(h=>{
       if(!h.notify_time||h.notify_time==='')return true;
@@ -738,9 +789,9 @@ function renderSection(cid,items,cat,today){
       <div class="check" onclick="toggleLog('${item.id}','${cat}','${item.done}','${item.log_id||''}','${today}')">
         ${item.done?'<i class="ti ti-check"></i>':''}
       </div>
-      <div class="item-body">
-        <div class="item-name">${item.name}</div>
-        ${item.sets?`<div class="item-meta">${item.sets} × ${item.reps||'?'}${item.weight?' · '+item.weight:''}</div>`:item.weight?`<div class="item-meta">${item.weight}</div>`:item.goal?`<div class="item-meta">${item.goal}</div>`:''}
+      <div class="item-body" ${cat==='gym'&&item.log_id?`onclick="event.stopPropagation();openEditDayExercise('${item.id}','${item.log_id}','${today}')" style="cursor:pointer"`:''}>
+        <div class="item-name">${item.name}${cat==='gym'&&item.log_id?'<i class="ti ti-pencil" style="font-size:11px;color:var(--muted);margin-left:5px"></i>':''}</div>
+        ${(()=>{const dm=item._dm;const s=dm&&dm.sets?dm.sets:item.sets;const r=dm&&dm.reps?dm.reps:(item.reps||null);const w=dm&&dm.weight?dm.weight:item.weight;return s?`<div class="item-meta">${s} × ${r||'?'}${w?' · '+w:''}</div>`:w?`<div class="item-meta">${w}</div>`:item.goal?`<div class="item-meta">${item.goal}</div>`:''})()}
       </div>
       <span class="tag tag-${cat}">${cat==='gym'?'Gym':cat==='habit'?'Hábito':'Tarea'}</span>
       ${cat==='task'?`<button class="item-del" onclick="event.stopPropagation();delTask('${item.id}')"><i class="ti ti-x"></i></button>`:''}
@@ -846,7 +897,7 @@ async function saveQuickItem(){
       await api('POST','/rest/v1/tasks',{user_id:userId,name,date:taskDate,done:false});
     } else if(cat==='habit'){
       const habitDays=Array.from(document.querySelectorAll('.habit-day-btn.sel')).map(b=>b.dataset.day);
-      await api('POST','/rest/v1/habits',{user_id:userId,name,goal:detail,active:true,notify_time:habitDays.join(',')});
+      await api('POST','/rest/v1/habits',{user_id:userId,name,goal:detail,active:true});
     } else {
       const exType=document.getElementById('mi-ex-type').value;
       const comments=document.getElementById('mi-comments').value.trim();
@@ -927,9 +978,14 @@ async function loadRoutines(){
 function toggleRoutine(id){document.getElementById(id)?.classList.toggle('open');}
 
 async function delRoutine(id){
-  if(!confirm('¿Eliminar esta rutina?'))return;
-  try{await api('DELETE',`/rest/v1/routines?id=eq.${id}&user_id=eq.${userId}`);loadRoutines();showToast('Eliminada');}
-  catch(e){showToast('Error');}
+  if(!confirm('¿Eliminar esta rutina y todos sus ejercicios?'))return;
+  try{
+    const exs=await api('GET',`/rest/v1/exercises?routine_id=eq.${id}&user_id=eq.${userId}&select=id`);
+    for(const ex of exs){await api('DELETE',`/rest/v1/daily_logs?exercise_id=eq.${ex.id}&user_id=eq.${userId}`);}
+    await api('DELETE',`/rest/v1/exercises?routine_id=eq.${id}&user_id=eq.${userId}`);
+    await api('DELETE',`/rest/v1/routines?id=eq.${id}&user_id=eq.${userId}`);
+    loadRoutines();showToast('Eliminada');
+  }catch(e){showToast('Error: '+e.message);}
 }
 
 function openRoutineModal(){
@@ -1595,25 +1651,62 @@ async function delTodayExercise(exId, logId){
   }catch(e){showToast('Error');}
 }
 
-function openEditRoutine(id, name, days){
+async function openEditRoutine(id, name, days){
   document.getElementById('edit-routine-id').value = id;
   document.getElementById('edit-routine-name').value = name;
   document.querySelectorAll('.edit-day-btn').forEach(b=>{
     b.classList.toggle('sel', days.includes(b.dataset.day));
   });
+  const exList=document.getElementById('edit-ex-list');
+  exList.innerHTML='<div class="loading">Cargando</div>';
   document.getElementById('modal-edit-routine').classList.add('open');
+  try{
+    const exs=await api('GET',`/rest/v1/exercises?routine_id=eq.${id}&user_id=eq.${userId}&order=order_index.asc&select=*`);
+    exList.innerHTML='';
+    if(exs.length){exs.forEach(ex=>addEditExRow(ex));}else{addEditExRow();}
+  }catch(e){exList.innerHTML='';addEditExRow();}
+}
+
+function addEditExRow(ex){
+  const uid='eer'+Date.now()+Math.random().toString(36).slice(2);
+  const d=document.createElement('div');
+  d.className='ex-inp-row';d.id=uid;d.dataset.exId=ex&&ex.id?ex.id:'';
+  d.innerHTML='<input type="text" placeholder="Ejercicio" value="'+(ex&&ex.name?ex.name.replace(/"/g,"'"):"")+'"\/><input type="number" placeholder="Series" min="1" value="'+(ex&&ex.sets?ex.sets:"")+'"\/><input type="number" placeholder="Reps" min="1" value="'+(ex&&ex.reps?ex.reps:"")+'"\/><input type="text" placeholder="Peso" value="'+(ex&&ex.weight?ex.weight.replace(/"/g,"'"):"")+'"\/><button onclick="document.getElementById(''+uid+'').remove()"><i class="ti ti-x"><\/i><\/button>';
+  document.getElementById('edit-ex-list').appendChild(d);
 }
 
 async function saveEditRoutine(){
-  const id = document.getElementById('edit-routine-id').value;
-  const name = document.getElementById('edit-routine-name').value.trim();
+  const id=document.getElementById('edit-routine-id').value;
+  const name=document.getElementById('edit-routine-name').value.trim();
   if(!name){showToast('Escribe un nombre');return;}
-  const days = Array.from(document.querySelectorAll('.edit-day-btn.sel')).map(b=>b.dataset.day);
+  const days=Array.from(document.querySelectorAll('.edit-day-btn.sel')).map(b=>b.dataset.day);
+  const rows=document.querySelectorAll('#edit-ex-list .ex-inp-row');
+  const newExs=[];
+  rows.forEach((row,i)=>{
+    const inps=row.querySelectorAll('input');
+    const n=inps[0].value.trim();
+    if(n)newExs.push({exId:row.dataset.exId||'',name:n,sets:parseInt(inps[1].value)||null,reps:parseInt(inps[2].value)||null,weight:inps[3].value.trim()||null,order_index:i});
+  });
   try{
     await api('PATCH',`/rest/v1/routines?id=eq.${id}&user_id=eq.${userId}`,{name,days});
-    showToast('Rutina actualizada ✓');
-    closeModals();
-    loadRoutines();
+    const existingExs=await api('GET',`/rest/v1/exercises?routine_id=eq.${id}&user_id=eq.${userId}&select=id`);
+    const existingIds=new Set(existingExs.map(e=>e.id));
+    const keptIds=new Set(newExs.filter(e=>e.exId).map(e=>e.exId));
+    for(const ex of existingExs){
+      if(!keptIds.has(ex.id)){
+        await api('DELETE',`/rest/v1/daily_logs?exercise_id=eq.${ex.id}&user_id=eq.${userId}`);
+        await api('DELETE',`/rest/v1/exercises?id=eq.${ex.id}&user_id=eq.${userId}`);
+      }
+    }
+    for(const ex of newExs){
+      const d={name:ex.name,sets:ex.sets,reps:ex.reps,weight:ex.weight,order_index:ex.order_index};
+      if(ex.exId&&existingIds.has(ex.exId)){
+        await api('PATCH',`/rest/v1/exercises?id=eq.${ex.exId}&user_id=eq.${userId}`,d);
+      }else{
+        await api('POST','/rest/v1/exercises',{...d,user_id:userId,routine_id:id});
+      }
+    }
+    showToast('Rutina actualizada ✓');closeModals();loadRoutines();
   }catch(e){showToast('Error: '+e.message);}
 }
 // ========== END DELETE & EDIT ==========
@@ -1802,6 +1895,71 @@ async function saveProfile(){
 }
 // ========== END PROFILE MODULE ==========
 
+
+
+// ========== APPLY ROUTINE + EDIT DAY EXERCISE ==========
+async function openApplyRoutineModal(){
+  document.getElementById('modal-apply-routine').classList.add('open');
+  const listEl=document.getElementById('apply-routine-list');
+  listEl.innerHTML='<div class="loading">Cargando</div>';
+  try{
+    const routines=await api('GET',`/rest/v1/routines?user_id=eq.${userId}&select=*,exercises(*)`);
+    if(!routines.length){listEl.innerHTML='<div class="empty">Sin rutinas creadas</div>';return;}
+    listEl.innerHTML=routines.map(r=>`
+      <div style="background:var(--s1);border:1px solid var(--s2);border-radius:12px;padding:13px 16px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between;cursor:pointer" onclick="applyAndClose('${r.id}')">
+        <div>
+          <div style="font-family:'Archivo Black',sans-serif;font-size:14px">${r.name}</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">${(r.exercises||[]).length} ejercicio(s)</div>
+        </div>
+        <i class="ti ti-circle-plus" style="font-size:22px;color:var(--accent)"></i>
+      </div>`).join('');
+  }catch(e){listEl.innerHTML='<div class="empty">Error</div>';}
+}
+
+async function applyAndClose(routineId){
+  closeModals();
+  await applyRoutineToday(routineId);
+}
+
+async function openEditDayExercise(exId, logId, date){
+  if(!logId||logId==='undefined'||logId==='')return;
+  try{
+    const [exArr, logArr]=await Promise.all([
+      api('GET',`/rest/v1/exercises?id=eq.${exId}&user_id=eq.${userId}&select=*&limit=1`),
+      api('GET',`/rest/v1/daily_logs?id=eq.${logId}&user_id=eq.${userId}&select=notes&limit=1`)
+    ]);
+    const ex=exArr[0];if(!ex)return;
+    let dm={sets:'',reps:'',weight:'',text:''};
+    try{const n=logArr[0]?.notes||'';if(n.startsWith('{')){const m=JSON.parse(n);dm={sets:m.sets||'',reps:m.reps||'',weight:m.weight||'',text:m.text||''};} else if(n){dm.text=n;}}catch(e){}
+    document.getElementById('day-ex-title').textContent=ex.name;
+    document.getElementById('day-ex-id').value=exId;
+    document.getElementById('day-log-id').value=logId;
+    document.getElementById('day-ex-date').value=date;
+    document.getElementById('day-ex-sets').value=dm.sets||ex.sets||'';
+    document.getElementById('day-ex-reps').value=dm.reps||(ex.reps||'');
+    document.getElementById('day-ex-weight').value=dm.weight||ex.weight||'';
+    document.getElementById('day-ex-notes').value=dm.text||'';
+    document.getElementById('modal-day-exercise').classList.add('open');
+  }catch(e){showToast('Error: '+e.message);}
+}
+
+async function saveDayExercise(){
+  const logId=document.getElementById('day-log-id').value;
+  const sets=document.getElementById('day-ex-sets').value.trim();
+  const reps=document.getElementById('day-ex-reps').value.trim();
+  const weight=document.getElementById('day-ex-weight').value.trim();
+  const text=document.getElementById('day-ex-notes').value.trim();
+  const meta={};
+  if(sets)meta.sets=parseInt(sets)||sets;
+  if(reps)meta.reps=reps;
+  if(weight)meta.weight=weight;
+  if(text)meta.text=text;
+  try{
+    await api('PATCH',`/rest/v1/daily_logs?id=eq.${logId}&user_id=eq.${userId}`,{notes:JSON.stringify(meta)});
+    closeModals();loadToday();showToast('Actualizado ✓');
+  }catch(e){showToast('Error: '+e.message);}
+}
+// ========== END APPLY ROUTINE + EDIT DAY EXERCISE ==========
 
 </script>
 </body>
