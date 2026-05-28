@@ -982,7 +982,7 @@ Grupos sin trabajar: ${weak.join(', ') || 'ninguno, buen balance'}.
 Días entrenados en total: ${totalDays}.
 Da una recomendación MUY CONCISA (máximo 3 líneas) de qué debería entrenar HOY específicamente para su objetivo de baloncesto. Sé directo, sin saludos.`;
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
@@ -1046,7 +1046,7 @@ Rutinas actuales: ${routineNames.join('; ') || 'ninguna aún'}.
 Ejercicios completados recientemente: ${doneNames.slice(0,15).join(', ') || 'ninguno aún'}.
 Responde siempre en español, de forma concisa y práctica. Usa emojis con moderación. Máximo 150 palabras por respuesta.`;
 
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
+    const res = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
