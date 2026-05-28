@@ -299,10 +299,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
         <button onclick="clearAIMemory()" style="background:transparent;border:1px solid var(--s3);border-radius:8px;color:var(--muted);cursor:pointer;font-size:11px;padding:4px 10px;font-family:Archivo,sans-serif">🗑 Limpiar</button>
       </div>
       <div id="ai-chat-messages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:10px;min-height:100px"></div>
-      <div style="display:flex;gap:8px;margin-bottom:1rem">
-        <input type="text" id="ai-input" class="inp" placeholder="Pregúntame sobre tu entrenamiento..." style="flex:1"/>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input type="text" id="ai-input" class="inp" placeholder="Pregúntame o pega tu entrenamiento..." style="flex:1"/>
         <button onclick="sendAIMessage()" style="background:var(--accent);border:none;border-radius:10px;color:#060608;cursor:pointer;padding:12px 14px;font-size:18px;flex-shrink:0"><i class="ti ti-send"></i></button>
       </div>
+      <div style="display:flex;gap:6px;margin-bottom:1rem">
+        <button onclick="openTextImport()" style="flex:1;background:var(--s2);border:1px solid var(--s3);border-radius:9px;color:var(--muted);cursor:pointer;font-family:Archivo,sans-serif;font-size:12px;padding:8px;display:flex;align-items:center;justify-content:center;gap:6px">
+          <i class="ti ti-clipboard-text"></i> Pegar entrenamiento
+        </button>
+        <button onclick="openImageImport()" style="flex:1;background:var(--s2);border:1px solid var(--s3);border-radius:9px;color:var(--muted);cursor:pointer;font-family:Archivo,sans-serif;font-size:12px;padding:8px;display:flex;align-items:center;justify-content:center;gap:6px">
+          <i class="ti ti-photo-scan"></i> Subir imagen
+        </button>
+      </div>
+      <input type="file" id="ai-image-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)"/>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem" id="ai-suggestions"></div>
     </div>
 
@@ -474,6 +483,32 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
     <div class="modal-actions">
       <button class="btn-cl" onclick="closeModals()">Cancelar</button>
       <button class="btn-save" onclick="saveRoutine()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TEXT IMPORT -->
+<div class="modal-bg" id="modal-text-import">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Pegar entrenamiento</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:12px;line-height:1.5">Pega tu plan de entrenamiento en texto. La IA lo analizará y creará las rutinas automáticamente.</p>
+    <div class="form-row">
+      <label class="form-label">Tu entrenamiento</label>
+      <textarea id="text-import-area" class="inp" rows="8" placeholder="Ejemplo:
+Lunes - Pecho:
+Press banca 4x10 80kg
+Aperturas 3x12
+Fondos 3x15
+
+Miércoles - Piernas:
+Sentadilla 4x8 100kg
+Hip thrust 3x12 60kg
+Lunges 3x10"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cl" onclick="closeModals()">Cancelar</button>
+      <button class="btn-save" onclick="processTextImport()"><i class="ti ti-wand"></i> Crear rutinas</button>
     </div>
   </div>
 </div>
@@ -1487,6 +1522,148 @@ async function applyRoutineToday(routineId){
 }
 
 // ========== END AI MODULE ==========
+
+// ========== IMPORT MODULE ==========
+function openTextImport(){
+  document.getElementById('text-import-area').value='';
+  document.getElementById('modal-text-import').classList.add('open');
+  setTimeout(()=>document.getElementById('text-import-area').focus(),200);
+}
+
+function openImageImport(){
+  document.getElementById('ai-image-input').click();
+}
+
+async function handleImageUpload(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const chatEl = document.getElementById('ai-chat-messages');
+  chatEl.innerHTML += `<div class="msg-bubble msg-user">📸 Imagen subida: ${file.name}</div>`;
+  chatEl.innerHTML += `<div class="msg-bubble msg-ai loading" id="ai-thinking">Analizando imagen...</div>`;
+  chatEl.scrollTop = chatEl.scrollHeight;
+  aiLoading = true;
+
+  try{
+    // Convert image to base64
+    const base64 = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result.split(',')[1]);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    const mediaType = file.type || 'image/jpeg';
+    const prompt = `Analiza esta imagen de entrenamiento y extrae TODAS las rutinas y ejercicios que veas.
+Devuelve SOLO líneas ACTION_ sin texto extra, una por rutina:
+ACTION_CREATE_ROUTINE|nombre_rutina|dias(deja vacío si no se especifica)|ejercicio1:series:reps:peso,ejercicio2:series:reps:peso
+Si hay múltiples días/rutinas, devuelve múltiples líneas ACTION_CREATE_ROUTINE.
+Si no ves ejercicios claros responde: NO_ROUTINE_FOUND`;
+
+    const res = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        max_tokens: 500,
+        vision: true,
+        image_base64: base64,
+        image_media_type: mediaType,
+        system: prompt,
+        messages: [{role:'user', content:'Extrae los ejercicios de esta imagen y crea las rutinas.'}]
+      })
+    });
+    const data = await res.json();
+    const rawText = (data.content?.[0]?.text||'').trim();
+    console.log('Vision raw:', rawText);
+
+    if(rawText.includes('NO_ROUTINE_FOUND') || !rawText.includes('ACTION_')){
+      document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">No pude identificar ejercicios claros en la imagen. Intenta con una imagen más nítida o usa la opción de texto.</div>`;
+      aiLoading = false;
+      return;
+    }
+
+    const actionLines = rawText.split('\n').filter(l=>l.trim().startsWith('ACTION_'));
+    let results = [];
+    for(const line of actionLines){
+      const result = await executeAIAction(line.trim());
+      if(result) results.push(result);
+    }
+
+    const summary = results.join('\n');
+    await saveAIMessage('assistant', '📸 Imagen procesada:\n'+summary);
+    document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">📸 Imagen procesada:<br>${summary.split('\n').join('<br>')}</div>`;
+    setTimeout(()=>loadRoutines(), 800);
+  }catch(e){
+    document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">Error procesando imagen: ${e.message}</div>`;
+  }
+  aiLoading = false;
+  event.target.value = '';
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+async function processTextImport(){
+  const text = document.getElementById('text-import-area').value.trim();
+  if(!text){showToast('Escribe o pega tu entrenamiento');return;}
+  closeModals();
+
+  const chatEl = document.getElementById('ai-chat-messages');
+  chatEl.innerHTML += `<div class="msg-bubble msg-user">📋 Entrenamiento pegado</div>`;
+  chatEl.innerHTML += `<div class="msg-bubble msg-ai loading" id="ai-thinking">Creando rutinas...</div>`;
+  chatEl.scrollTop = chatEl.scrollHeight;
+  aiLoading = true;
+
+  try{
+    const actionPrompt = `Analiza este plan de entrenamiento y crea las rutinas:
+"${text}"
+
+Responde SOLO con líneas ACTION_CREATE_ROUTINE, sin texto extra:
+ACTION_CREATE_ROUTINE|nombre_rutina|dias(0=Lun,1=Mar,2=Mie,3=Jue,4=Vie,5=Sab,6=Dom, deja vacío si no se especifica)|ejercicio1:series:reps:peso,ejercicio2:series:reps:peso
+
+Reglas:
+- Una línea por rutina/día
+- Si no se especifican series/reps pon valores típicos (3 series, 10 reps)
+- Si no hay peso deja el campo vacío
+- Nombra cada rutina por grupo muscular o día (ej: "Pecho y Tríceps", "Piernas", "Lunes")
+- Si hay múltiples días, genera múltiples líneas ACTION_CREATE_ROUTINE`;
+
+    const res = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        max_tokens:600,
+        system: actionPrompt,
+        messages:[{role:'user',content:text}]
+      })
+    });
+    const data = await res.json();
+    const rawText = (data.content?.[0]?.text||'').trim();
+    console.log('Text import raw:', rawText);
+
+    const actionLines = rawText.split('\n').filter(l=>l.trim().startsWith('ACTION_'));
+    if(!actionLines.length){
+      document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">No pude extraer ejercicios del texto. Intenta con un formato más claro.</div>`;
+      aiLoading = false;
+      return;
+    }
+
+    let results = [];
+    for(const line of actionLines){
+      const result = await executeAIAction(line.trim());
+      if(result) results.push(result);
+    }
+
+    const summary = results.join('\n');
+    await saveAIMessage('assistant', '📋 Rutinas creadas:\n'+summary);
+    aiChatHistory.push({role:'assistant', content:'📋 Rutinas creadas:\n'+summary});
+    document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">📋 Rutinas creadas:<br>${summary.split('\n').join('<br>')}</div>`;
+    setTimeout(()=>loadRoutines(), 800);
+  }catch(e){
+    document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">Error: ${e.message}</div>`;
+  }
+  aiLoading = false;
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+// ========== END IMPORT MODULE ==========
+
 
 // ========== PROFILE MODULE ==========
 async function loadProfileTab(){
