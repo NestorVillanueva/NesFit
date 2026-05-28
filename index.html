@@ -6,8 +6,1282 @@
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="theme-color" content="#060608"/><!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
 <meta name="theme-color" content="#060608"/>
 <title>FitNes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@300;400;500&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#060608;
+  --s1:#0E0E12;
+  --s2:#16161C;
+  --s3:#1E1E26;
+  --s4:#2A2A36;
+  --accent:#D4F53C;
+  --accent2:#B8DA20;
+  --orange:#FF5C35;
+  --blue:#3CDDF5;
+  --red:#FF3D5A;
+  --text:#F2F0FA;
+  --muted:#58566A;
+  --muted2:#3A3848;
+  --rb:18px;
+}
+
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archivo',sans-serif;overflow:hidden}
+#app{height:100dvh;display:flex;flex-direction:column;max-width:430px;margin:0 auto;position:relative;background:var(--bg)}
+
+/* NOISE TEXTURE OVERLAY */
+#app::before{content:'';position:fixed;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");pointer-events:none;z-index:0;opacity:.4}
+
+/* AUTH */
+#auth-screen{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:2rem;gap:0;position:relative;z-index:1}
+.auth-glow{position:absolute;width:300px;height:300px;border-radius:50%;background:radial-gradient(circle,rgba(212,245,60,.08) 0%,transparent 70%);top:50%;left:50%;transform:translate(-50%,-60%);pointer-events:none}
+.auth-logo{font-family:'Archivo Black',sans-serif;font-size:4.5rem;letter-spacing:-2px;line-height:1;margin-bottom:2rem;text-align:center}
+.auth-logo .fit{color:var(--accent)}
+.auth-logo .nes{color:var(--orange)}
+.auth-card{width:100%;background:var(--s1);border:1px solid var(--s3);border-radius:var(--rb);padding:1.75rem;display:flex;flex-direction:column;gap:1rem;position:relative;overflow:hidden}
+.auth-card::before{content:'';position:absolute;top:-1px;left:20%;right:20%;height:1px;background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.auth-welcome{font-size:1rem;font-weight:500;color:var(--text);line-height:1.4}
+.auth-welcome span{color:var(--muted);font-size:.8rem;font-weight:300;display:block;margin-top:3px}
+.err-msg{font-size:12px;color:var(--red);text-align:center;display:none;padding:8px;background:rgba(255,61,90,.08);border-radius:8px;border:1px solid rgba(255,61,90,.2)}
+.inp{background:var(--s2);border:1px solid var(--s3);border-radius:10px;color:var(--text);font-family:'Archivo',sans-serif;font-size:14px;padding:13px 16px;width:100%;outline:none;transition:border-color .2s,box-shadow .2s}
+.inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(212,245,60,.08)}
+.inp::placeholder{color:var(--muted)}
+.btn{border:none;border-radius:10px;cursor:pointer;font-family:'Archivo Black',sans-serif;font-size:14px;letter-spacing:.5px;padding:14px;width:100%;transition:all .2s;position:relative;overflow:hidden}
+.btn-primary{background:var(--accent);color:#060608}
+.btn-primary::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.15),transparent);pointer-events:none}
+.btn-primary:active{transform:scale(.98);background:var(--accent2)}
+.auth-toggle-link{text-align:center;font-size:13px;color:var(--muted);cursor:pointer}
+.auth-toggle-link span{color:var(--accent);font-weight:500}
+.remember-row{display:flex;align-items:center;gap:10px;cursor:pointer}
+
+/* MAIN */
+#main-screen{flex:1;display:none;flex-direction:column;overflow:hidden;position:relative;z-index:1}
+
+/* TOPBAR */
+.topbar{padding:.9rem 1.25rem .5rem;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-bottom:1px solid var(--s2)}
+.topbar-logo{font-family:'Archivo Black',sans-serif;font-size:1.4rem;letter-spacing:-1px}
+.topbar-logo .fit{color:var(--accent)}
+.topbar-logo .nes{color:var(--orange)}
+.topbar-title-text{font-family:'Archivo Black',sans-serif;font-size:1.2rem;letter-spacing:-.5px;color:var(--text);display:none}
+.topbar-right{display:flex;align-items:center;gap:8px}
+.avatar{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#060608;display:flex;align-items:center;justify-content:center;font-family:'Archivo Black',sans-serif;font-size:13px;cursor:pointer;flex-shrink:0}
+.icon-btn{width:34px;height:34px;border-radius:9px;background:var(--s2);border:1px solid var(--s3);color:var(--text);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:17px;transition:background .15s}
+.icon-btn:active{background:var(--s3)}
+
+/* SCROLL */
+.scroll-area{flex:1;overflow-y:auto;overflow-x:hidden;padding:0 1rem 1rem;-webkit-overflow-scrolling:touch}
+.scroll-area::-webkit-scrollbar{display:none}
+
+/* BOTTOM NAV */
+.bottom-nav{flex-shrink:0;display:flex;background:var(--s1);border-top:1px solid var(--s2);padding:6px 0 calc(6px + env(safe-area-inset-bottom))}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:7px 0;border:none;background:transparent;color:var(--muted);font-size:9px;font-family:'Archivo',sans-serif;font-weight:500;letter-spacing:.5px;text-transform:uppercase;transition:color .15s;position:relative}
+.nav-item.active{color:var(--accent)}
+.nav-item.active::before{content:'';position:absolute;top:0;left:25%;right:25%;height:2px;background:var(--accent);border-radius:0 0 2px 2px}
+.nav-item i{font-size:20px;line-height:1}
+.tab-page{display:none}
+.tab-page.active{display:block}
+
+/* TODAY */
+.day-header{background:var(--s1);border-radius:var(--rb);padding:1.25rem;margin-bottom:1rem;position:relative;overflow:hidden;border:1px solid var(--s2)}
+.day-header::after{content:'';position:absolute;top:-30px;right:-30px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(212,245,60,.06),transparent 70%);pointer-events:none}
+.day-name{font-family:'Archivo Black',sans-serif;font-size:2.4rem;letter-spacing:-2px;line-height:1;color:var(--accent)}
+.day-date{font-size:11px;color:var(--muted);margin-top:3px;text-transform:uppercase;letter-spacing:1px}
+.progress-row{display:flex;align-items:center;gap:12px;margin-top:1rem}
+.prog-bar-wrap{flex:1;height:4px;background:var(--s3);border-radius:2px;overflow:hidden}
+.prog-bar{height:100%;background:linear-gradient(90deg,var(--accent),var(--blue));border-radius:2px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.prog-pct{font-family:'Archivo Black',sans-serif;font-size:1rem;color:var(--accent);min-width:38px;text-align:right}
+
+/* SECTIONS */
+.section-row{display:flex;align-items:center;justify-content:space-between;margin:1.25rem 0 .6rem}
+.section-label{font-size:10px;font-weight:500;letter-spacing:2px;text-transform:uppercase;color:var(--muted)}
+.add-btn{background:var(--s2);border:1px solid var(--s3);border-radius:8px;color:var(--accent);cursor:pointer;font-size:18px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;transition:all .15s}
+.add-btn:active{background:var(--s3)}
+
+/* ITEMS */
+.item-row{background:var(--s1);border:1px solid var(--s2);border-radius:12px;padding:13px;margin-bottom:7px;display:flex;align-items:center;gap:11px;transition:all .2s;position:relative;overflow:hidden}
+.item-row::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;background:var(--s3);transition:background .2s}
+.item-row.done{opacity:.4}
+.item-row.done::before{background:var(--accent)}
+.check{width:22px;height:22px;border:1.5px solid var(--s4);border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .2s;font-size:12px}
+.item-row.done .check{background:var(--accent);border-color:var(--accent);color:#060608}
+.item-body{flex:1;min-width:0}
+.item-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-row.done .item-name{text-decoration:line-through;color:var(--muted)}
+.item-meta{font-size:11px;color:var(--muted);margin-top:2px;letter-spacing:.2px}
+.item-del{background:none;border:none;color:var(--muted2);cursor:pointer;font-size:16px;padding:4px;flex-shrink:0;transition:color .15s}
+.item-del:active{color:var(--red)}
+.tag{font-size:10px;padding:3px 8px;border-radius:20px;font-weight:500;flex-shrink:0;letter-spacing:.3px}
+.tag-gym{background:rgba(255,92,53,.12);color:var(--orange)}
+.tag-habit{background:rgba(60,221,245,.1);color:var(--blue)}
+.tag-task{background:rgba(212,245,60,.1);color:var(--accent)}
+
+/* SUGGEST */
+.suggest{background:linear-gradient(135deg,rgba(212,245,60,.06),rgba(255,92,53,.04));border:1px solid rgba(212,245,60,.15);border-radius:12px;padding:12px 14px;margin-bottom:1rem}
+.suggest-hd{font-size:10px;color:var(--accent);text-transform:uppercase;letter-spacing:1.5px;font-weight:500;margin-bottom:8px}
+.suggest-item{font-size:13px;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.suggest-item::before{content:"→";color:var(--orange);font-size:13px}
+
+/* ROUTINES */
+.routine-card{background:var(--s1);border:1px solid var(--s2);border-radius:var(--rb);margin-bottom:10px;overflow:hidden}
+.routine-header{padding:14px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer}
+.routine-title{font-family:'Archivo Black',sans-serif;font-size:1.05rem;letter-spacing:-.3px}
+.routine-days{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.day-pill{font-size:9px;padding:3px 7px;border-radius:20px;background:var(--s3);color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+.day-pill.active{background:rgba(212,245,60,.12);color:var(--accent)}
+.routine-body{border-top:1px solid var(--s2);padding:12px 16px;display:none}
+.routine-body.open{display:block}
+.ex-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--s2)}
+.ex-row:last-child{border-bottom:none}
+.ex-num{width:22px;height:22px;border-radius:6px;background:var(--s3);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--muted);flex-shrink:0;font-weight:500}
+.ex-name{flex:1;font-size:13px;font-weight:500}
+.ex-detail{font-size:11px;color:var(--muted);text-align:right}
+.today-indicator{font-size:9px;color:var(--accent);font-weight:500;padding:3px 8px;background:rgba(212,245,60,.1);border-radius:20px;text-transform:uppercase;letter-spacing:.5px}
+
+/* HISTORY */
+.hist-entry{background:var(--s1);border:1px solid var(--s2);border-radius:14px;padding:14px 16px;margin-bottom:10px}
+.hist-score-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.hist-score{font-family:'Archivo Black',sans-serif;font-size:2rem;letter-spacing:-1px;line-height:1}
+.score-great{color:var(--accent)}
+.score-mid{color:var(--orange)}
+.score-low{color:var(--red)}
+.stats-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1rem}
+.stat-box{background:var(--s1);border:1px solid var(--s2);border-radius:12px;padding:14px 10px;text-align:center;position:relative;overflow:hidden}
+.stat-box::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--accent);opacity:.3}
+.stat-n{font-family:'Archivo Black',sans-serif;font-size:1.8rem;letter-spacing:-1px;color:var(--accent)}
+.stat-l{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+
+/* NOTIFICATIONS */
+.notif-card{background:var(--s1);border:1px solid var(--s2);border-radius:14px;padding:16px;margin-bottom:10px}
+.notif-title{font-size:13px;font-weight:500;margin-bottom:12px;display:flex;align-items:center;gap:8px;color:var(--text)}
+.notif-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.notif-label{font-size:12px;color:var(--muted)}
+.toggle{width:42px;height:24px;background:var(--s3);border-radius:12px;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;width:18px;height:18px;background:white;border-radius:50%;top:3px;left:3px;transition:transform .2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.toggle.on::after{transform:translateX(18px)}
+.time-inp{background:var(--s2);border:1px solid var(--s3);border-radius:8px;color:var(--text);font-family:'Archivo',sans-serif;font-size:13px;padding:7px 10px;outline:none;width:100px}
+
+/* AI */
+.ai-card{background:var(--s1);border:1px solid var(--s2);border-radius:14px;padding:16px;margin-bottom:10px;position:relative;overflow:hidden}
+.ai-card-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1.5px;font-weight:500;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.muscle-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.muscle-item{background:var(--s2);border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between;border:1px solid var(--s3)}
+.muscle-name{font-size:12px;font-weight:500}
+.muscle-bar-wrap{width:50px;height:3px;background:var(--s3);border-radius:2px;overflow:hidden;margin-top:5px}
+.muscle-bar{height:100%;border-radius:2px}
+.msg-bubble{padding:11px 14px;border-radius:14px;font-size:13px;line-height:1.6;max-width:85%}
+.msg-user{background:var(--accent);color:#060608;align-self:flex-end;border-bottom-right-radius:4px;font-weight:500}
+.msg-ai{background:var(--s1);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px;border:1px solid var(--s3)}
+.msg-ai.loading{color:var(--muted)}
+.suggestion-chip{background:var(--s2);border:1px solid var(--s3);border-radius:20px;color:var(--muted);cursor:pointer;font-size:11px;padding:6px 12px;transition:all .15s;white-space:nowrap;font-family:'Archivo',sans-serif}
+.suggestion-chip:active{border-color:var(--accent);color:var(--accent)}
+.rec-card{background:var(--s2);border-radius:10px;padding:11px 13px;margin-bottom:8px;border-left:2px solid var(--accent)}
+.rec-title{font-size:13px;font-weight:500;margin-bottom:3px}
+.rec-desc{font-size:11px;color:var(--muted);line-height:1.5}
+
+/* MODAL */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px)}
+.modal-bg.open{display:flex}
+.modal{background:var(--s1);border-radius:var(--rb) var(--rb) 0 0;border-top:1px solid var(--s3);padding:20px 20px calc(20px + env(safe-area-inset-bottom));width:100%;max-width:430px;max-height:88dvh;overflow-y:auto}
+.modal-handle{width:36px;height:3px;background:var(--s4);border-radius:2px;margin:0 auto 18px}
+.modal-title{font-family:'Archivo Black',sans-serif;font-size:1.4rem;letter-spacing:-.5px;color:var(--accent);margin-bottom:16px}
+.form-row{margin-bottom:12px}
+.form-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:6px;display:block;font-weight:500}
+.form-row input,.form-row select,.form-row textarea{width:100%;background:var(--s2);border:1px solid var(--s3);border-radius:10px;color:var(--text);font-family:'Archivo',sans-serif;font-size:14px;padding:12px 14px;outline:none;transition:border-color .2s}
+.form-row input:focus,.form-row select:focus,.form-row textarea:focus{border-color:var(--accent)}
+.form-row select option{background:var(--s2)}
+.form-row textarea{resize:none;line-height:1.5}
+.days-select{display:flex;gap:6px;flex-wrap:wrap}
+.day-btn{background:var(--s2);border:1px solid var(--s3);border-radius:8px;color:var(--muted);cursor:pointer;font-size:12px;padding:7px 11px;transition:all .15s;font-family:'Archivo',sans-serif}
+.day-btn.sel{background:rgba(212,245,60,.12);border-color:var(--accent);color:var(--accent);font-weight:500}
+.ex-inp-row{display:grid;grid-template-columns:1fr 55px 55px 70px 32px;gap:5px;margin-bottom:6px;align-items:center}
+.ex-inp-row input{padding:9px 8px;font-size:12px}
+.ex-inp-row button{background:var(--s3);border:none;border-radius:8px;color:var(--red);cursor:pointer;padding:8px;font-size:14px;display:flex;align-items:center;justify-content:center}
+.add-ex-btn{background:transparent;border:1px dashed var(--s4);border-radius:10px;color:var(--muted);cursor:pointer;font-size:12px;padding:10px;width:100%;margin-top:4px;transition:all .15s;font-family:'Archivo',sans-serif}
+.add-ex-btn:hover{border-color:var(--accent);color:var(--accent)}
+.modal-actions{display:flex;gap:10px;margin-top:16px}
+.btn-save{flex:1;background:var(--accent);border:none;border-radius:10px;color:#060608;cursor:pointer;font-family:'Archivo Black',sans-serif;font-size:1rem;letter-spacing:.3px;padding:14px;transition:opacity .15s}
+.btn-save:active{opacity:.85}
+.btn-cl{background:var(--s2);border:1px solid var(--s3);border-radius:10px;color:var(--muted);cursor:pointer;font-size:13px;padding:14px 16px;font-family:'Archivo',sans-serif}
+.empty{text-align:center;color:var(--muted);font-size:13px;padding:2rem 0;line-height:1.6}
+.loading{text-align:center;color:var(--muted);font-size:13px;padding:1rem 0}
+.loading::after{content:'';display:inline-block;width:12px;height:12px;border:2px solid var(--s4);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;margin-left:8px;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--accent);color:#060608;font-size:12px;font-weight:500;padding:9px 18px;border-radius:30px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;font-family:'Archivo Black',sans-serif;letter-spacing:.3px}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div id="app">
+
+<div id="auth-screen">
+  <div class="auth-glow"></div>
+  <div class="auth-logo"><span class="fit">Fit</span><span class="nes">Nes</span></div>
+  <div class="auth-card">
+    <h3 class="auth-welcome" id="auth-mode-title">Hola Nestor 👋<span>Bienvenido de nuevo</span></h3>
+    <p class="err-msg" id="err-msg"></p>
+    <input class="inp" id="auth-email" type="email" placeholder="Email" autocomplete="email"/>
+    <input class="inp" id="auth-pass" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAuth()"/>
+    <label class="remember-row">
+      <div class="toggle on" id="tog-remember" onclick="this.classList.toggle('on')" style="flex-shrink:0"></div>
+      <span style="font-size:13px;color:var(--muted)">Mantener sesión iniciada</span>
+    </label>
+    <button class="btn btn-primary" id="auth-btn" onclick="doAuth()">Entrar</button>
+    <p class="auth-toggle-link" onclick="toggleAuthMode()">¿No tienes cuenta? <span id="auth-toggle-txt">Registrarse</span></p>
+  </div>
+</div>
+
+<div id="main-screen">
+  <div class="topbar">
+    <div class="topbar-logo" id="topbar-logo"><span class="fit">Fit</span><span class="nes">Nes</span></div>
+    <div class="topbar-title-text" id="topbar-title"></div>
+    <div class="topbar-right">
+      <button class="icon-btn" onclick="openNotifSettings()"><i class="ti ti-bell"></i></button>
+      <div class="avatar" id="user-avatar">N</div>
+    </div>
+  </div>
+
+  <div class="scroll-area">
+    <div class="tab-page active" id="tab-today">
+      <div class="day-header">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+          <button onclick="changeDay(-1)" style="background:var(--s2);border:1px solid var(--s3);border-radius:8px;color:var(--text);cursor:pointer;padding:6px 10px;font-size:16px"><i class="ti ti-chevron-left"></i></button>
+          <div style="text-align:center">
+            <div class="day-name" id="day-name">LUNES</div>
+            <div class="day-date" id="day-date">—</div>
+          </div>
+          <button onclick="changeDay(1)" style="background:var(--s2);border:1px solid var(--s3);border-radius:8px;color:var(--text);cursor:pointer;padding:6px 10px;font-size:16px"><i class="ti ti-chevron-right"></i></button>
+        </div>
+        <button onclick="goToToday()" id="btn-go-today" style="display:none;width:100%;background:transparent;border:1px solid var(--accent);border-radius:8px;color:var(--accent);cursor:pointer;font-family:Archivo,sans-serif;font-size:12px;padding:6px;margin-bottom:4px">Volver a hoy</button>
+        <div class="progress-row">
+          <div class="prog-bar-wrap"><div class="prog-bar" id="prog-bar" style="width:0%"></div></div>
+          <div class="prog-pct" id="prog-pct">0%</div>
+        </div>
+      </div>
+      <div id="suggest-wrap"></div>
+      <div class="section-row">
+        <span class="section-label">Ejercicios de hoy</span>
+        <button class="add-btn" onclick="openQuickAdd('gym')"><i class="ti ti-plus"></i></button>
+      </div>
+      <div id="today-gym"><div class="loading">Cargando</div></div>
+      <div class="section-row">
+        <span class="section-label">Hábitos</span>
+        <button class="add-btn" onclick="openQuickAdd('habit')"><i class="ti ti-plus"></i></button>
+      </div>
+      <div id="today-habit"><div class="loading">Cargando</div></div>
+      <div class="section-row">
+        <span class="section-label">Tareas de hoy</span>
+        <button class="add-btn" onclick="openQuickAdd('task')"><i class="ti ti-plus"></i></button>
+      </div>
+      <div id="today-task"><div class="loading">Cargando</div></div>
+      <div style="height:1rem"></div>
+      <button class="btn btn-primary" style="border-radius:12px" onclick="closeDay()">
+        <i class="ti ti-check"></i> Cerrar día
+      </button>
+    </div>
+
+    <div class="tab-page" id="tab-routines">
+      <div class="section-row" style="margin-top:.75rem">
+        <span class="section-label">Mis rutinas</span>
+        <button class="add-btn" onclick="openRoutineModal()"><i class="ti ti-plus"></i></button>
+      </div>
+      <div id="routines-list"><div class="loading">Cargando</div></div>
+    </div>
+
+    <div class="tab-page" id="tab-ai">
+      <div id="ai-dashboard"></div>
+      <div class="section-row" style="margin-top:.5rem">
+        <span class="section-label">Asistente IA</span>
+      </div>
+      <div id="ai-chat-messages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:10px;min-height:100px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:1rem">
+        <input type="text" id="ai-input" class="inp" placeholder="Pregúntame sobre tu entrenamiento..." style="flex:1"/>
+        <button onclick="sendAIMessage()" style="background:var(--accent);border:none;border-radius:10px;color:#060608;cursor:pointer;padding:12px 14px;font-size:18px;flex-shrink:0"><i class="ti ti-send"></i></button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem" id="ai-suggestions"></div>
+    </div>
+
+    <div class="tab-page" id="tab-profile">
+      <div style="text-align:center;padding:1.5rem 0 1rem">
+        <div id="profile-avatar-big" style="width:70px;height:70px;border-radius:50%;background:var(--accent);color:#060608;display:flex;align-items:center;justify-content:center;font-family:'Archivo Black',sans-serif;font-size:1.8rem;margin:0 auto 10px"></div>
+        <div id="profile-email-display" style="font-size:12px;color:var(--muted);letter-spacing:.3px"></div>
+      </div>
+      <div class="ai-card">
+        <div class="ai-card-title"><i class="ti ti-user-circle"></i> Tu perfil</div>
+        <div class="form-row">
+          <label class="form-label">Tu nombre</label>
+          <input type="text" id="p-name" class="inp" placeholder="Ej: Nestor"/>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Nivel de experiencia</label>
+          <select id="p-level" class="inp">
+            <option value="Principiante (menos de 1 año)">Principiante (menos de 1 año)</option>
+            <option value="Intermedio (1-3 años)">Intermedio (1-3 años)</option>
+            <option value="Avanzado (más de 3 años)">Avanzado (más de 3 años)</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Deporte o actividad principal</label>
+          <input type="text" id="p-sport" class="inp" placeholder="Ej: Baloncesto, Fútbol, Fitness..."/>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Tu objetivo principal</label>
+          <textarea id="p-goal" class="inp" rows="3" placeholder="Ej: Ganar músculo y mejorar mi salto..."></textarea>
+        </div>
+      </div>
+      <button class="btn btn-primary" style="border-radius:12px;margin-bottom:1rem" onclick="saveProfile()">
+        <i class="ti ti-check"></i> Guardar perfil
+      </button>
+      <div class="ai-card" style="border-color:rgba(255,61,90,.15)">
+        <div class="ai-card-title"><i class="ti ti-settings"></i> Cuenta</div>
+        <button onclick="doLogout()" style="width:100%;background:transparent;border:1px solid var(--s3);border-radius:10px;color:var(--muted);cursor:pointer;font-family:'Archivo',sans-serif;font-size:13px;padding:11px;text-align:left;display:flex;align-items:center;gap:8px;transition:border-color .15s">
+          <i class="ti ti-logout"></i> Cerrar sesión
+        </button>
+      </div>
+    </div>
+
+    <div class="tab-page" id="tab-history">
+      <div class="stats-grid" style="margin-top:.75rem">
+        <div class="stat-box"><div class="stat-n" id="st-days">0</div><div class="stat-l">Días</div></div>
+        <div class="stat-box"><div class="stat-n" id="st-done">0</div><div class="stat-l">Hechos</div></div>
+        <div class="stat-box"><div class="stat-n" id="st-avg">0%</div><div class="stat-l">Promedio</div></div>
+      </div>
+      <div id="history-list"><div class="loading">Cargando</div></div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav">
+    <button class="nav-item active" onclick="switchTab('today',this)"><i class="ti ti-home"></i><span>Hoy</span></button>
+    <button class="nav-item" onclick="switchTab('routines',this)"><i class="ti ti-barbell"></i><span>Rutinas</span></button>
+    <button class="nav-item" onclick="switchTab('ai',this)"><i class="ti ti-brain"></i><span>IA</span></button>
+    <button class="nav-item" onclick="switchTab('history',this)"><i class="ti ti-chart-bar"></i><span>Stats</span></button>
+    <button class="nav-item" onclick="switchTab('profile',this)"><i class="ti ti-user"></i><span>Perfil</span></button>
+  </nav>
+</div>
+
+<!-- MODAL ADD ITEM -->
+<div class="modal-bg" id="modal-item">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-item-title">Nueva actividad</div>
+    <input type="hidden" id="mi-cat"/>
+    <div class="form-row">
+      <label class="form-label">Nombre</label>
+      <input type="text" id="mi-name" placeholder="Ej: Press banca, Agua 2L..."/>
+    </div>
+    <div class="form-row" id="mi-gym-fields" style="display:none">
+      <label class="form-label">Series</label>
+      <input type="number" id="mi-sets" class="inp" placeholder="4" min="1" style="margin-bottom:8px"/>
+      <label class="form-label">Reps / Tiempo</label>
+      <div style="display:flex;gap:6px;margin-bottom:8px">
+        <input type="text" id="mi-reps" class="inp" placeholder="10 reps o 30s" style="flex:1"/>
+        <select id="mi-rep-type" class="inp" style="width:120px">
+          <option value="reps">Reps</option>
+          <option value="tiempo">Tiempo</option>
+          <option value="unilateral">Unilateral</option>
+        </select>
+      </div>
+      <label class="form-label">Peso</label>
+      <div style="display:flex;gap:6px">
+        <input type="text" id="mi-weight" class="inp" placeholder="60kg" style="flex:1"/>
+        <select id="mi-weight-type" class="inp" style="width:140px">
+          <option value="kg">Peso (kg)</option>
+          <option value="corporal">Peso corporal</option>
+          <option value="banda">Banda elástica</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-row" id="mi-habit-fields" style="display:none">
+      <label class="form-label">Días activo</label>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px" id="habit-days-select">
+        <button class="day-btn habit-day-btn sel" data-day="0">Lun</button>
+        <button class="day-btn habit-day-btn sel" data-day="1">Mar</button>
+        <button class="day-btn habit-day-btn sel" data-day="2">Mié</button>
+        <button class="day-btn habit-day-btn sel" data-day="3">Jue</button>
+        <button class="day-btn habit-day-btn sel" data-day="4">Vie</button>
+        <button class="day-btn habit-day-btn sel" data-day="5">Sáb</button>
+        <button class="day-btn habit-day-btn sel" data-day="6">Dom</button>
+      </div>
+    </div>
+    <div class="form-row" id="mi-task-fields" style="display:none">
+      <label class="form-label">Fecha</label>
+      <input type="date" id="mi-task-date" class="inp" style="margin-bottom:8px"/>
+    </div>
+    <div class="form-row" id="mi-other-fields">
+      <label class="form-label" id="mi-detail-label">Detalle</label>
+      <input type="text" id="mi-detail" placeholder="Meta o descripción..."/>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cl" onclick="closeModals()">Cancelar</button>
+      <button class="btn-save" onclick="saveQuickItem()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL ROUTINE -->
+<div class="modal-bg" id="modal-routine">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Nueva rutina</div>
+    <div class="form-row">
+      <label class="form-label">Nombre de la rutina</label>
+      <input type="text" id="rn-name" placeholder="Ej: Pecho y tríceps"/>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Días de la semana</label>
+      <div class="days-select" id="days-select">
+        <button class="day-btn" data-day="0">Lun</button>
+        <button class="day-btn" data-day="1">Mar</button>
+        <button class="day-btn" data-day="2">Mié</button>
+        <button class="day-btn" data-day="3">Jue</button>
+        <button class="day-btn" data-day="4">Vie</button>
+        <button class="day-btn" data-day="5">Sáb</button>
+        <button class="day-btn" data-day="6">Dom</button>
+      </div>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Ejercicios</label>
+      <div id="ex-list"></div>
+      <button class="add-ex-btn" onclick="addExRow()"><i class="ti ti-plus"></i> Añadir ejercicio</button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cl" onclick="closeModals()">Cancelar</button>
+      <button class="btn-save" onclick="saveRoutine()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NOTIFICATIONS -->
+<div class="modal-bg" id="modal-notif">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Notificaciones</div>
+    <div class="notif-card">
+      <div class="notif-title"><i class="ti ti-sun"></i> Inicio del día</div>
+      <div class="notif-row"><span class="notif-label">Recordatorio matutino</span><div class="toggle" id="tog-morning" onclick="toggleNotif('morning')"></div></div>
+      <div class="notif-row"><span class="notif-label">Hora</span><input type="time" class="time-inp" id="time-morning" value="07:30" onchange="saveNotifSettings()"/></div>
+    </div>
+    <div class="notif-card">
+      <div class="notif-title"><i class="ti ti-moon"></i> Cierre del día</div>
+      <div class="notif-row"><span class="notif-label">Recordatorio nocturno</span><div class="toggle" id="tog-evening" onclick="toggleNotif('evening')"></div></div>
+      <div class="notif-row"><span class="notif-label">Hora</span><input type="time" class="time-inp" id="time-evening" value="21:00" onchange="saveNotifSettings()"/></div>
+    </div>
+    <div class="notif-card">
+      <div class="notif-title"><i class="ti ti-barbell"></i> Rutina</div>
+      <div class="notif-row"><span class="notif-label">Recordar entrenamiento</span><div class="toggle" id="tog-routine" onclick="toggleNotif('routine')"></div></div>
+      <div class="notif-row"><span class="notif-label">Hora</span><input type="time" class="time-inp" id="time-routine" value="06:30" onchange="saveNotifSettings()"/></div>
+    </div>
+    <button class="btn-save" style="width:100%;margin-top:8px" onclick="applyNotifications()">Activar notificaciones</button>
+    <button class="btn-cl" style="width:100%;margin-top:8px" onclick="closeModals()">Cerrar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+const SUPA_URL='https://rlzvprwvklsrnhxeapjo.supabase.co';
+const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsenZwcnd2a2xzcm5oeGVhcGpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4ODcyMjIsImV4cCI6MjA5NTQ2MzIyMn0.x9EWqpwS_aRjIkViDr3-ELM07Oiukaptwi69Ccbefiw';
+let token=null,userId=null,userEmail='',isLogin=true;
+const DAYS_ES=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
+const DAYS_SHORT=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
+const MONTHS_ES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+
+let viewingDate=null;
+function todayStr(){return new Date().toISOString().split('T')[0];}
+function viewingDateStr(){return viewingDate||todayStr();}
+function changeDay(delta){
+  const d=new Date(viewingDateStr());
+  d.setDate(d.getDate()+delta);
+  viewingDate=d.toISOString().split('T')[0];
+  loadToday();
+}
+function goToToday(){viewingDate=null;loadToday();}
+function todayDow(){let d=new Date().getDay();return d===0?6:d-1;}
+function fmtDate(s){const[y,m,d]=s.split('-');return `${parseInt(d)} de ${MONTHS_ES[parseInt(m)-1]}`;}
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500);}
+
+async function api(method,path,body){
+  const headers={'Content-Type':'application/json','apikey':SUPA_KEY,'Authorization':'Bearer '+(token||SUPA_KEY),'Prefer':'return=representation'};
+  const opts={method,headers};
+  if(body!==undefined)opts.body=JSON.stringify(body);
+  const r=await fetch(SUPA_URL+path,opts);
+  if(r.status===204){return[];}
+  const data=await r.json();
+  if(!r.ok)throw new Error(data.message||data.error_description||'Error');
+  return data;
+}
+async function authApi(path,body){
+  const r=await fetch(SUPA_URL+path,{method:'POST',headers:{'Content-Type':'application/json','apikey':SUPA_KEY},body:JSON.stringify(body)});
+  return r.json();
+}
+
+function toggleAuthMode(){
+  isLogin=!isLogin;
+  document.getElementById('auth-mode-title').textContent=isLogin?'Iniciar sesión':'Crear cuenta';
+  document.getElementById('auth-btn').textContent=isLogin?'Entrar':'Registrarse';
+  document.getElementById('auth-toggle-txt').textContent=isLogin?'Crear cuenta':'Iniciar sesión';
+  document.getElementById('err-msg').style.display='none';
+}
+
+async function doAuth(){
+  const email=document.getElementById('auth-email').value.trim();
+  const pass=document.getElementById('auth-pass').value;
+  const errEl=document.getElementById('err-msg');
+  errEl.style.display='none';
+  if(!email||!pass){errEl.textContent='Rellena todos los campos';errEl.style.display='block';return;}
+  const btn=document.getElementById('auth-btn');btn.textContent='...';btn.disabled=true;
+  try{
+    const path=isLogin?'/auth/v1/token?grant_type=password':'/auth/v1/signup';
+    const data=await authApi(path,{email,password:pass});
+    if(data.error||data.error_description)throw new Error(data.error_description||data.error);
+    if(!isLogin&&!data.access_token){showToast('¡Revisa tu email para confirmar la cuenta!');btn.textContent='Registrarse';btn.disabled=false;return;}
+    token=data.access_token;userId=data.user?.id||getUserIdFromToken(data.access_token);userEmail=data.user?.email||email;
+    localStorage.setItem('fitnes_session',JSON.stringify({token,userId,email:userEmail,refresh_token:data.refresh_token||null,saved:true}));
+    localStorage.setItem('fitnes_last_email',email);
+    if(btn){btn.textContent=isLogin?'Entrar':'Registrarse';btn.disabled=false;}
+    initApp();
+  }catch(e){errEl.textContent=e.message;errEl.style.display='block';if(btn){btn.textContent=isLogin?'Entrar':'Registrarse';btn.disabled=false;}}
+}
+
+function doLogout(){
+  if(!confirm('¿Cerrar sesión?'))return;
+  token=null;userId=null;localStorage.removeItem('fitnes_session');
+  document.getElementById('auth-screen').style.display='flex';
+  document.getElementById('main-screen').style.display='none';
+}
+
+function initApp(){
+  document.getElementById('auth-screen').style.display='none';
+  document.getElementById('main-screen').style.display='flex';
+  document.getElementById('user-avatar').textContent=userEmail.charAt(0).toUpperCase();
+  // Load profile name for avatar
+  try{const p=getUserProfile();if(p&&p.name)document.getElementById('user-avatar').textContent=p.name.charAt(0).toUpperCase();}catch(e){}
+  loadToday();loadNotifSettings();
+}
+
+function switchTab(name,el){
+  document.querySelectorAll('.tab-page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  if(el)el.classList.add('active');
+  const titles={today:'',routines:'Rutinas',history:'Stats',ai:'IA Coach',profile:'Mi Perfil'};
+  const logo=document.getElementById('topbar-logo');
+  const titleEl=document.getElementById('topbar-title');
+  if(name==='today'){logo.style.display='block';titleEl.style.display='none';}
+  else{logo.style.display='none';titleEl.style.display='block';titleEl.textContent=titles[name];}
+
+  if(name==='routines')loadRoutines();
+  if(name==='history')loadHistory();
+  if(name==='today')loadToday();
+  if(name==='ai'){loadAIDashboard();}
+  if(name==='profile'){loadProfileTab();}
+}
+
+async function loadToday(){
+  const dateStr=viewingDateStr();
+  const dateObj=new Date(dateStr);
+  let dow=dateObj.getDay();dow=dow===0?6:dow-1;
+  document.getElementById('day-name').textContent=DAYS_ES[dow].toUpperCase();
+  document.getElementById('day-date').textContent=fmtDate(dateStr);
+  const btnToday=document.getElementById('btn-go-today');
+  if(btnToday)btnToday.style.display=dateStr!==todayStr()?'block':'none';
+  // Auto-postpone: move undone tasks from past to today
+  if(dateStr===todayStr()){
+    try{
+      const pastTasks=await api('GET','/rest/v1/tasks?user_id=eq.'+userId+'&done=eq.false&date=lt.'+todayStr()+'&select=*');
+      for(const t of pastTasks){
+        await api('PATCH','/rest/v1/tasks?id=eq.'+t.id+'&user_id=eq.'+userId,{date:todayStr()});
+      }
+    }catch(e){}
+  }
+  const today=dateStr;
+  try{
+    const[logs,habits,tasks,routines,exercises]=await Promise.all([
+      api('GET',`/rest/v1/daily_logs?user_id=eq.${userId}&date=eq.${today}&select=*`),
+      api('GET',`/rest/v1/habits?user_id=eq.${userId}&active=eq.true&select=*`),
+      api('GET',`/rest/v1/tasks?user_id=eq.${userId}&date=eq.${today}&select=*`),
+      api('GET',`/rest/v1/routines?user_id=eq.${userId}&select=*,exercises(*)`),
+      api('GET',`/rest/v1/exercises?user_id=eq.${userId}&select=*`),
+    ]);
+    const todayRoutines=routines.filter(r=>r.days&&r.days.includes(String(dow)));
+    const gymItems=[];
+    const usedExIds=new Set();
+    todayRoutines.forEach(r=>(r.exercises||[]).forEach(e=>{
+      const log=logs.find(l=>l.exercise_id===e.id);
+      gymItems.push({...e,done:log?log.done:false,log_id:log?.id,type:'gym'});
+      usedExIds.add(e.id);
+    }));
+    // Also show standalone exercises logged for today
+    const todayExLogs=logs.filter(l=>l.exercise_id&&!usedExIds.has(l.exercise_id));
+    for(const log of todayExLogs){
+      const ex=exercises.find(e=>e.id===log.exercise_id);
+      if(ex){gymItems.push({...ex,done:log.done,log_id:log.id,type:'gym'});}
+    }
+    const habitItems=habits.filter(h=>{
+      if(!h.notify_time||h.notify_time==='')return true;
+      const days=h.notify_time.split(',');
+      return days.includes(String(dow));
+    }).map(h=>{const log=logs.find(l=>l.habit_id===h.id);return{...h,done:log?log.done:false,log_id:log?.id,type:'habit'};});
+    const taskItems=tasks.map(t=>({...t,type:'task'}));
+    renderSection('today-gym',gymItems,'gym',today);
+    renderSection('today-habit',habitItems,'habit',today);
+    renderSection('today-task',taskItems,'task',today);
+    updateProgress([...gymItems,...habitItems,...taskItems]);
+    renderSuggest([...gymItems,...habitItems,...taskItems]);
+  }catch(e){showToast('Error cargando: '+e.message);}
+}
+
+function renderSection(cid,items,cat,today){
+  const c=document.getElementById(cid);
+  const labels={gym:'ejercicios hoy',habit:'hábitos activos',task:'tareas hoy'};
+  if(!items.length){c.innerHTML=`<div class="empty">Sin ${labels[cat]}</div>`;return;}
+  c.innerHTML=items.map(item=>`
+    <div class="item-row ${item.done?'done':''}" id="ir-${item.id}">
+      <div class="check" onclick="toggleLog('${item.id}','${cat}','${item.done}','${item.log_id||''}','${today}')">
+        ${item.done?'<i class="ti ti-check"></i>':''}
+      </div>
+      <div class="item-body">
+        <div class="item-name">${item.name}</div>
+        ${item.sets?`<div class="item-meta">${item.sets} × ${item.reps||'?'}${item.weight?' · '+item.weight:''}</div>`:item.goal?`<div class="item-meta">${item.goal}</div>`:''}
+      </div>
+      <span class="tag tag-${cat}">${cat==='gym'?'Gym':cat==='habit'?'Hábito':'Tarea'}</span>
+      ${cat==='task'?`<button class="item-del" onclick="event.stopPropagation();delTask('${item.id}')"><i class="ti ti-x"></i></button>`:''}
+    </div>`).join('');
+}
+
+function updateProgress(items){
+  const total=items.length,done=items.filter(i=>i.done).length;
+  const pct=total>0?Math.round(done/total*100):0;
+  document.getElementById('prog-bar').style.width=pct+'%';
+  document.getElementById('prog-pct').textContent=pct+'%';
+}
+
+function renderSuggest(items){
+  const pending=items.filter(i=>!i.done);
+  const w=document.getElementById('suggest-wrap');
+  if(!pending.length||!items.length){w.innerHTML='';return;}
+  w.innerHTML=`<div class="suggest"><div class="suggest-hd"><i class="ti ti-bolt"></i> Pendiente hoy</div>${pending.slice(0,3).map(i=>`<div class="suggest-item">${i.name}</div>`).join('')}${pending.length>3?`<div class="suggest-item" style="color:var(--muted)">+${pending.length-3} más</div>`:''}</div>`;
+}
+
+async function toggleLog(itemId,cat,isDone,logId,today){
+  const nowDone=isDone==='true'||isDone===true?false:true;
+  try{
+    if(cat==='task'){
+      await api('PATCH',`/rest/v1/tasks?id=eq.${itemId}&user_id=eq.${userId}`,{done:nowDone});
+    } else if(logId&&logId!=='undefined'&&logId!==''){
+      await api('PATCH',`/rest/v1/daily_logs?id=eq.${logId}`,{done:nowDone});
+    } else {
+      const body={user_id:userId,date:today,done:nowDone};
+      if(cat==='gym')body.exercise_id=itemId;
+      else body.habit_id=itemId;
+      await api('POST','/rest/v1/daily_logs',body);
+    }
+    loadToday();
+  }catch(e){showToast('Error: '+e.message);}
+}
+
+async function delTask(id){
+  try{await api('DELETE',`/rest/v1/tasks?id=eq.${id}&user_id=eq.${userId}`);loadToday();}
+  catch(e){showToast('Error');}
+}
+
+function openQuickAdd(cat){
+  const titles={gym:'Añadir ejercicio',habit:'Nuevo hábito',task:'Nueva tarea'};
+  document.getElementById('modal-item-title').textContent=titles[cat];
+  document.getElementById('mi-cat').value=cat;
+  document.getElementById('mi-name').value='';
+  document.getElementById('mi-detail').value='';
+  const gymFields=document.getElementById('mi-gym-fields');
+  const otherFields=document.getElementById('mi-other-fields');
+  const habitFields=document.getElementById('mi-habit-fields');
+  const taskFields=document.getElementById('mi-task-fields');
+  gymFields.style.display='none';
+  otherFields.style.display='none';
+  habitFields.style.display='none';
+  taskFields.style.display='none';
+  if(cat==='gym'){
+    gymFields.style.display='block';
+    document.getElementById('mi-sets').value='';
+    document.getElementById('mi-reps').value='';
+    document.getElementById('mi-weight').value='';
+    document.getElementById('mi-rep-type').value='reps';
+    document.getElementById('mi-weight-type').value='kg';
+  } else if(cat==='habit'){
+    habitFields.style.display='block';
+    otherFields.style.display='block';
+    document.getElementById('mi-detail-label').textContent='Meta o duración';
+    document.querySelectorAll('.habit-day-btn').forEach(b=>b.classList.add('sel'));
+  } else if(cat==='task'){
+    taskFields.style.display='block';
+    otherFields.style.display='block';
+    document.getElementById('mi-detail-label').textContent='Descripción (opcional)';
+    document.getElementById('mi-task-date').value=viewingDateStr();
+  }
+  document.getElementById('modal-item').classList.add('open');
+  setTimeout(()=>document.getElementById('mi-name').focus(),200);
+}
+
+async function saveQuickItem(){
+  const cat=document.getElementById('mi-cat').value;
+  const name=document.getElementById('mi-name').value.trim();
+  const detail=document.getElementById('mi-detail').value.trim();
+  if(!name)return;
+  try{
+    if(cat==='task'){
+      const taskDate=document.getElementById('mi-task-date').value||viewingDateStr();
+      await api('POST','/rest/v1/tasks',{user_id:userId,name,date:taskDate,done:false});
+    } else if(cat==='habit'){
+      const habitDays=Array.from(document.querySelectorAll('.habit-day-btn.sel')).map(b=>b.dataset.day);
+      await api('POST','/rest/v1/habits',{user_id:userId,name,goal:detail,active:true,notify_time:habitDays.join(',')});
+    } else {
+      const sets=parseInt(document.getElementById('mi-sets').value)||null;
+      const repsVal=document.getElementById('mi-reps').value.trim();
+      const repType=document.getElementById('mi-rep-type').value;
+      const weightVal=document.getElementById('mi-weight').value.trim();
+      const weightType=document.getElementById('mi-weight-type').value;
+      let repsText=repsVal;
+      if(repType==='tiempo')repsText=repsVal+(repsVal.includes('s')||repsVal.includes('min')?'':' seg');
+      if(repType==='unilateral')repsText=repsVal+' c/lado';
+      let weightText=weightVal;
+      if(weightType==='corporal')weightText='Peso corporal';
+      if(weightType==='banda')weightText='Banda elástica';
+      const exData={user_id:userId,routine_id:null,name,sets:sets,reps:parseInt(repsVal)||null,weight:weightText||null,order_index:0};
+      const ex=await api('POST','/rest/v1/exercises',exData);
+      if(ex&&ex[0]){
+        await api('POST','/rest/v1/daily_logs',{user_id:userId,date:todayStr(),exercise_id:ex[0].id,done:false,notes:(repType!=='reps'?repType+': ':'')+repsText});
+      }
+    }
+    closeModals();loadToday();showToast('Añadido ✓');
+  }catch(e){showToast('Error: '+e.message);}
+}
+
+async function loadRoutines(){
+  try{
+    const r=await api('GET',`/rest/v1/routines?user_id=eq.${userId}&select=*,exercises(*)`);
+    const c=document.getElementById('routines-list'),dow=todayDow();
+    if(!r.length){c.innerHTML='<div class="empty">Sin rutinas. ¡Crea la primera!</div>';return;}
+    c.innerHTML=r.map(rt=>`
+      <div class="routine-card">
+        <div class="routine-header" onclick="toggleRoutine('rb-${rt.id}')">
+          <div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <div class="routine-title">${rt.name}</div>
+              ${rt.days&&rt.days.includes(String(dow))?'<span class="today-indicator">HOY</span>':''}
+            </div>
+            <div class="routine-days">${DAYS_SHORT.map((d,i)=>`<span class="day-pill${rt.days&&rt.days.includes(String(i))?' active':''}">${d}</span>`).join('')}</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="item-del" onclick="event.stopPropagation();delRoutine('${rt.id}')"><i class="ti ti-trash"></i></button>
+            <i class="ti ti-chevron-down" style="color:var(--muted)"></i>
+          </div>
+        </div>
+        <div class="routine-body" id="rb-${rt.id}">
+          <button onclick="applyRoutineToday('${rt.id}')" style="width:100%;background:var(--accent);border:none;border-radius:10px;color:#060608;cursor:pointer;font-family:'Archivo Black',sans-serif;font-size:13px;padding:10px;margin-bottom:10px"><i class="ti ti-plus"></i> Aplicar rutina a hoy</button>
+          ${!(rt.exercises||[]).length?'<div class="empty">Sin ejercicios</div>':(rt.exercises||[]).sort((a,b)=>a.order_index-b.order_index).map((e,i)=>`
+            <div class="ex-row">
+              <div class="ex-num">${i+1}</div>
+              <div class="ex-name">${e.name}</div>
+              <div class="ex-detail">${e.sets?e.sets+'×'+(e.reps||'?')+(e.weight?' · '+e.weight:''):''}</div>
+            </div>`).join('')}
+        </div>
+      </div>`).join('');
+  }catch(e){showToast('Error cargando rutinas');}
+}
+
+function toggleRoutine(id){document.getElementById(id)?.classList.toggle('open');}
+
+async function delRoutine(id){
+  if(!confirm('¿Eliminar esta rutina?'))return;
+  try{await api('DELETE',`/rest/v1/routines?id=eq.${id}&user_id=eq.${userId}`);loadRoutines();showToast('Eliminada');}
+  catch(e){showToast('Error');}
+}
+
+function openRoutineModal(){
+  document.getElementById('rn-name').value='';
+  document.querySelectorAll('.day-btn').forEach(b=>b.classList.remove('sel'));
+  document.getElementById('ex-list').innerHTML='';
+  addExRow();
+  document.getElementById('modal-routine').classList.add('open');
+}
+
+function addExRow(){
+  const id='ex'+Date.now();
+  const d=document.createElement('div');
+  d.className='ex-inp-row';d.id=id;
+  d.innerHTML=`<input type="text" placeholder="Ejercicio"/><input type="number" placeholder="Series" min="1"/><input type="number" placeholder="Reps" min="1"/><input type="text" placeholder="Peso"/><button onclick="document.getElementById('${id}').remove()"><i class="ti ti-x"></i></button>`;
+  document.getElementById('ex-list').appendChild(d);
+}
+
+async function saveRoutine(){
+  const name=document.getElementById('rn-name').value.trim();
+  if(!name){showToast('Escribe un nombre');return;}
+  const selDays=Array.from(document.querySelectorAll('.day-btn.sel')).map(b=>b.dataset.day);
+  const exs=[];
+  document.querySelectorAll('#ex-list .ex-inp-row').forEach((row,i)=>{
+    const inps=row.querySelectorAll('input');
+    const n=inps[0].value.trim();
+    if(n)exs.push({name:n,sets:parseInt(inps[1].value)||null,reps:parseInt(inps[2].value)||null,weight:inps[3].value.trim()||null,order_index:i});
+  });
+  try{
+    const rt=await api('POST','/rest/v1/routines',{user_id:userId,name,days:selDays});
+    const rtId=rt[0]?.id;
+    if(rtId&&exs.length)await Promise.all(exs.map(e=>api('POST','/rest/v1/exercises',{...e,user_id:userId,routine_id:rtId})));
+    closeModals();loadRoutines();showToast('Rutina creada ✓');
+  }catch(e){showToast('Error: '+e.message);}
+}
+
+
+
+async function loadHistory(){
+  try{
+    const[logs,tasks]=await Promise.all([
+      api('GET',`/rest/v1/daily_logs?user_id=eq.${userId}&select=*&order=date.desc`),
+      api('GET',`/rest/v1/tasks?user_id=eq.${userId}&select=*&order=date.desc`),
+    ]);
+    const byDate={};
+    [...logs,...tasks].forEach(l=>{
+      const d=l.date;if(!byDate[d])byDate[d]={done:0,total:0};
+      byDate[d].total++;if(l.done)byDate[d].done++;
+    });
+    const dates=Object.keys(byDate).sort((a,b)=>b.localeCompare(a));
+    const tDays=dates.length,tDone=dates.reduce((s,d)=>s+byDate[d].done,0),tAll=dates.reduce((s,d)=>s+byDate[d].total,0);
+    document.getElementById('st-days').textContent=tDays;
+    document.getElementById('st-done').textContent=tDone;
+    document.getElementById('st-avg').textContent=(tAll>0?Math.round(tDone/tAll*100):0)+'%';
+    const c=document.getElementById('history-list');
+    if(!dates.length){c.innerHTML='<div class="empty">Sin historial todavía.<br>¡Cierra tu primer día!</div>';return;}
+    c.innerHTML=dates.map(d=>{
+      const e=byDate[d],pct=e.total>0?Math.round(e.done/e.total*100):0;
+      const cls=pct>=80?'score-great':pct>=50?'score-mid':'score-low';
+      return `<div class="hist-entry">
+        <div class="hist-score-row">
+          <div>
+            <div style="font-size:14px;font-weight:500">${fmtDate(d)}</div>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">${e.done}/${e.total} completados</div>
+          </div>
+          <div class="hist-score ${cls}">${pct}%</div>
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){showToast('Error historial');}
+}
+
+async function closeDay(){
+  try{
+    const today=todayStr();
+    const[logs,tasks]=await Promise.all([
+      api('GET',`/rest/v1/daily_logs?user_id=eq.${userId}&date=eq.${today}&select=*`),
+      api('GET',`/rest/v1/tasks?user_id=eq.${userId}&date=eq.${today}&select=*`),
+    ]);
+    const total=logs.length+tasks.length,done=logs.filter(l=>l.done).length+tasks.filter(t=>t.done).length;
+    showToast(`Día cerrado: ${done}/${total} completados 💪`);
+  }catch(e){showToast('Error');}
+}
+
+let notifSettings={morning:false,morning_time:'07:30',evening:false,evening_time:'21:00',routine:false,routine_time:'06:30'};
+
+function loadNotifSettings(){
+  try{const s=localStorage.getItem('fitnes_notif');if(s)notifSettings=JSON.parse(s);}catch(e){}
+  applyToggleUI();
+}
+function saveNotifSettings(){
+  notifSettings.morning_time=document.getElementById('time-morning').value;
+  notifSettings.evening_time=document.getElementById('time-evening').value;
+  notifSettings.routine_time=document.getElementById('time-routine').value;
+  localStorage.setItem('fitnes_notif',JSON.stringify(notifSettings));
+}
+function applyToggleUI(){
+  ['morning','evening','routine'].forEach(k=>{
+    document.getElementById('tog-'+k).classList.toggle('on',!!notifSettings[k]);
+  });
+  document.getElementById('time-morning').value=notifSettings.morning_time||'07:30';
+  document.getElementById('time-evening').value=notifSettings.evening_time||'21:00';
+  document.getElementById('time-routine').value=notifSettings.routine_time||'06:30';
+}
+function toggleNotif(key){notifSettings[key]=!notifSettings[key];applyToggleUI();saveNotifSettings();}
+function openNotifSettings(){document.getElementById('modal-notif').classList.add('open');applyToggleUI();}
+
+async function applyNotifications(){
+  if(!('Notification' in window)){showToast('Tu navegador no soporta notificaciones');return;}
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted'){showToast('Permiso denegado');return;}
+  saveNotifSettings();scheduleNotifications();showToast('Notificaciones activadas ✓');closeModals();
+}
+
+function scheduleNotifications(){
+  if(!('Notification' in window)||Notification.permission!=='granted')return;
+  const now=new Date();
+  function scheduleAt(timeStr,title,body){
+    const[h,m]=timeStr.split(':').map(Number);
+    const t=new Date();t.setHours(h,m,0,0);
+    if(t<=now)t.setDate(t.getDate()+1);
+    setTimeout(()=>new Notification(title,{body,icon:'data:image/png;base64,iVBORw0KGgo='}),t-now);
+  }
+  if(notifSettings.morning)scheduleAt(notifSettings.morning_time,'¡Buenos días! 🌅','Revisa tus actividades de hoy en FitNes.');
+  if(notifSettings.evening)scheduleAt(notifSettings.evening_time,'¿Cerraste tu día? 🌙','No olvides registrar tu progreso.');
+  if(notifSettings.routine)scheduleAt(notifSettings.routine_time,'💪 Entrenamiento hoy','Tienes rutina programada. ¡A por ello!');
+}
+
+function closeModals(){document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open'));}
+
+
+
+function getUserIdFromToken(t){
+  try{const p=t.split('.')[1];const d=JSON.parse(atob(p));return d.sub;}catch(e){return null;}
+}
+
+window.onload = async function(){
+  // Event listeners
+  
+  document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)closeModals();}));
+  document.getElementById('mi-name').addEventListener('keydown',e=>{if(e.key==='Enter')saveQuickItem();});
+  document.getElementById('days-select').addEventListener('click',e=>{const b=e.target.closest('.day-btn');if(b)b.classList.toggle('sel');});
+  document.getElementById('habit-days-select').addEventListener('click',e=>{const b=e.target.closest('.habit-day-btn');if(b)b.classList.toggle('sel');});
+
+  // Pre-fill saved email
+  const savedEmail=localStorage.getItem('fitnes_last_email');
+  if(savedEmail){const el=document.getElementById('auth-email');if(el)el.value=savedEmail;}
+
+  const s=localStorage.getItem('fitnes_session');
+  if(!s) return;
+  try{
+    const d=JSON.parse(s);
+    if(!d.email||!d.saved) return;
+    // Try to refresh session using stored refresh token or re-validate
+    if(d.refresh_token){
+      const r=await fetch(SUPA_URL+'/auth/v1/token?grant_type=refresh_token',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPA_KEY},
+        body:JSON.stringify({refresh_token:d.refresh_token})
+      });
+      const data=await r.json();
+      if(data.access_token){
+        token=data.access_token;
+        userId=data.user?.id||getUserIdFromToken(data.access_token)||d.userId;
+        userEmail=data.user?.email||d.email;
+        localStorage.setItem('fitnes_session',JSON.stringify({
+          token,userId,email:userEmail,
+          refresh_token:data.refresh_token||d.refresh_token,
+          saved:true
+        }));
+        initApp();
+        return;
+      }
+    }
+    // Fallback: if token still valid use it
+    if(d.token&&(d.userId||getUserIdFromToken(d.token))){
+      token=d.token;userId=d.userId||getUserIdFromToken(d.token);userEmail=d.email||'';
+      // Verify token is still valid
+      const test=await fetch(SUPA_URL+`/rest/v1/habits?user_id=eq.${userId}&limit=1`,{
+        headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+token}
+      });
+      if(test.ok){initApp();return;}
+    }
+    // Token expired, clear session
+    localStorage.removeItem('fitnes_session');
+  }catch(e){localStorage.removeItem('fitnes_session');}
+};
+
+// ========== AI MODULE ==========
+function getUserProfile(){
+  try{
+    const s=localStorage.getItem('fitnes_profile_'+userId);
+    if(s) return JSON.parse(s);
+  }catch(e){}
+  return {name: userEmail.split('@')[0], goal:'Mejorar mi condición física general.', level:'Intermedio (1-3 años)', sport:'Fitness'};
+}
+
+const MUSCLE_GROUPS = {
+  'pecho': {color:'#FF6B35',keywords:['press','pectoral','pecho','aperturas','fondos']},
+  'espalda': {color:'#4ECDC4',keywords:['remo','jalón','dominadas','espalda','pull','peso muerto']},
+  'piernas': {color:'#C8F135',keywords:['sentadilla','squat','prensa','femoral','cuádricep','pierna','lunges','zancada','hip thrust','glúteo']},
+  'hombros': {color:'#FF4757',keywords:['press militar','lateral','hombro','deltoides','elevaciones']},
+  'bíceps': {color:'#A8D020',keywords:['curl','bícep','martillo']},
+  'tríceps': {color:'#FFB930',keywords:['trícep','extensión','press francés','fondos']},
+  'core': {color:'#7B68EE',keywords:['abdomen','plancha','crunch','core','oblicuo','sit-up']},
+  'explosividad': {color:'#FF1744',keywords:['salto','box jump','sprint','velocidad','agilidad','cargada','arrancada','pliométrico']}
+};
+
+let aiChatHistory = [];
+let aiLoading = false;
+
+async function loadAIDashboard() {
+  const dashEl = document.getElementById('ai-dashboard');
+  dashEl.innerHTML = '<div class="loading">Analizando tu entrenamiento...</div>';
+  try {
+    const [logs, exercises, tasks] = await Promise.all([
+      api('GET', `/rest/v1/daily_logs?user_id=eq.${userId}&select=*&order=date.desc&limit=50`),
+      api('GET', `/rest/v1/exercises?user_id=eq.${userId}&select=*`),
+      api('GET', `/rest/v1/tasks?user_id=eq.${userId}&select=*&order=date.desc&limit=20`)
+    ]);
+
+    const doneExIds = logs.filter(l => l.done && l.exercise_id).map(l => l.exercise_id);
+    const doneExercises = exercises.filter(e => doneExIds.includes(e.id));
+    const muscleCount = {};
+    Object.keys(MUSCLE_GROUPS).forEach(m => muscleCount[m] = 0);
+    doneExercises.forEach(e => {
+      const name = (e.name || '').toLowerCase();
+      Object.entries(MUSCLE_GROUPS).forEach(([group, data]) => {
+        if (data.keywords.some(k => name.includes(k))) muscleCount[group]++;
+      });
+    });
+
+    const totalEx = doneExercises.length;
+    const doneTasks = tasks.filter(t => t.done).length;
+    const totalDays = [...new Set(logs.map(l => l.date))].length;
+    const maxMuscle = Math.max(...Object.values(muscleCount), 1);
+    const sorted = Object.entries(muscleCount).sort((a,b) => b[1]-a[1]);
+    const weakGroups = sorted.filter(([,v]) => v === 0).map(([k]) => k);
+    const strongGroups = sorted.filter(([,v]) => v > 0).slice(0,3).map(([k]) => k);
+
+    dashEl.innerHTML = `
+      <div class="ai-card" style="background:linear-gradient(135deg,rgba(200,241,53,.08),rgba(255,107,53,.06));border:1px solid rgba(200,241,53,.2)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="width:40px;height:40px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px">🏀</div>
+          <div>
+            <div style="font-size:15px;font-weight:500">Hola ${getUserProfile().name}</div>
+            <div style="font-size:12px;color:var(--muted)">Objetivo: baloncesto y atletismo</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <div style="text-align:center;background:var(--s2);border-radius:10px;padding:10px">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--accent)">${totalDays}</div>
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Días</div>
+          </div>
+          <div style="text-align:center;background:var(--s2);border-radius:10px;padding:10px">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--orange)">${totalEx}</div>
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Ejercicios</div>
+          </div>
+          <div style="text-align:center;background:var(--s2);border-radius:10px;padding:10px">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--blue)">${doneTasks}</div>
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Tareas</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-card">
+        <div class="ai-card-title"><i class="ti ti-chart-radar"></i> Grupos musculares esta semana</div>
+        <div class="muscle-grid">
+          ${sorted.map(([group, count]) => `
+            <div class="muscle-item">
+              <div>
+                <div class="muscle-name">${group.charAt(0).toUpperCase()+group.slice(1)}</div>
+                <div class="muscle-bar-wrap"><div class="muscle-bar" style="width:${Math.round(count/maxMuscle*100)}%;background:${MUSCLE_GROUPS[group].color}"></div></div>
+              </div>
+              <div style="font-size:12px;color:${count===0?'var(--red)':count>=2?'var(--accent)':'var(--muted)'}">${count===0?'⚠️':count+'x'}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      ${weakGroups.length > 0 ? `
+      <div class="ai-card" style="border:1px solid rgba(255,71,87,.2)">
+        <div class="ai-card-title" style="color:var(--red)"><i class="ti ti-alert-triangle"></i> Grupos sin trabajar</div>
+        ${weakGroups.map(g => `
+          <div class="rec-card" style="border-left-color:var(--red)">
+            <div class="rec-title">${g.charAt(0).toUpperCase()+g.slice(1)} — Sin actividad</div>
+            <div class="rec-desc">${getWeakGroupTip(g)}</div>
+          </div>`).join('')}
+      </div>` : ''}
+
+      <div class="ai-card">
+        <div class="ai-card-title"><i class="ti ti-bolt"></i> Recomendación para hoy</div>
+        <div id="ai-today-rec"><div class="loading">Generando...</div></div>
+      </div>
+    `;
+
+    generateTodayRec(strongGroups, weakGroups, totalDays);
+    renderAISuggestions();
+  } catch(e) {
+    dashEl.innerHTML = '<div class="empty">Error cargando dashboard</div>';
+  }
+}
+
+function getWeakGroupTip(group) {
+  const tips = {
+    'piernas': 'Crítico para el baloncesto. Trabaja sentadillas, hip thrust y saltos pliométricos.',
+    'explosividad': 'Esencial para saltar más y acelerar. Añade box jumps, sprints y cargadas.',
+    'core': 'Base de todo movimiento atlético. Plancha, dead bug y rotaciones.',
+    'espalda': 'Crucial para la postura y potencia. Remos y jalones.',
+    'hombros': 'Importante para el tiro. Press militar y elevaciones laterales.',
+    'pecho': 'Añade press de banca o fondos para equilibrar.',
+    'bíceps': 'Trabaja curls para completar el tren superior.',
+    'tríceps': 'Fondos y extensiones para el tren superior completo.'
+  };
+  return tips[group] || 'Incluye ejercicios de este grupo en tu próxima sesión.';
+}
+
+async function generateTodayRec(strong, weak, totalDays) {
+  const el = document.getElementById('ai-today-rec');
+  if (!el) return;
+  try {
+    const profile=getUserProfile();
+    const prompt = `Eres un entrenador personal experto en ${profile.sport||'fitness'}. 
+Usuario: ${profile.name}, nivel ${profile.level}, objetivo: ${profile.goal}.
+Grupos musculares más trabajados: ${strong.join(', ') || 'ninguno aún'}.
+Grupos sin trabajar: ${weak.join(', ') || 'ninguno, buen balance'}.
+Días entrenados en total: ${totalDays}.
+Da una recomendación MUY CONCISA (máximo 3 líneas) de qué debería entrenar HOY. Sé directo, sin saludos.`;
+
+    const res = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        max_tokens: 200,
+        messages: [{role: 'user', content: prompt}]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || 'No se pudo generar recomendación.';
+    el.innerHTML = `<div style="font-size:14px;line-height:1.6;color:var(--text)">${text.split('\n').join('<br>')}</div>`;
+  } catch(e) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--muted)">Enfócate hoy en piernas y explosividad para mejorar tu salto.</div>';
+  }
+}
+
+function renderAISuggestions() {
+  const chips = [
+    '¿Qué debo entrenar esta semana?',
+    'Ejercicios para saltar más',
+    'Plan para ganar músculo y definir',
+    '¿Cómo mejorar mi aceleración?',
+    'Analiza mi progreso',
+    'Rutina de baloncesto'
+  ];
+  document.getElementById('ai-suggestions').innerHTML = chips.map(c =>
+    `<button class="suggestion-chip" onclick="sendAIMessage('${c}')">${c}</button>`
+  ).join('');
+}
+
+async function sendAIMessage(preset) {
+  if (aiLoading) return;
+  const input = document.getElementById('ai-input');
+  const msg = preset || input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  const chatEl = document.getElementById('ai-chat-messages');
+  chatEl.innerHTML += `<div class="msg-bubble msg-user">${msg}</div>`;
+  chatEl.innerHTML += `<div class="msg-bubble msg-ai loading" id="ai-thinking">Pensando...</div>`;
+  chatEl.scrollTop = chatEl.scrollHeight;
+  aiLoading = true;
+
+  try {
+    const [logs, exercises, routines] = await Promise.all([
+      api('GET', `/rest/v1/daily_logs?user_id=eq.${userId}&select=*&order=date.desc&limit=30`),
+      api('GET', `/rest/v1/exercises?user_id=eq.${userId}&select=*`),
+      api('GET', `/rest/v1/routines?user_id=eq.${userId}&select=*,exercises(*)`)
+    ]);
+    const doneExIds = logs.filter(l => l.done && l.exercise_id).map(l => l.exercise_id);
+    const doneNames = exercises.filter(e => doneExIds.includes(e.id)).map(e => e.name);
+    const routineNames = routines.map(r => `${r.name} (${(r.days||[]).map(d=>['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][d]).join(',')})`);
+    const totalDays = [...new Set(logs.map(l => l.date))].length;
+
+    aiChatHistory.push({role: 'user', content: msg});
+
+    let habitsList='';
+    try{
+      const habs=await api('GET',`/rest/v1/habits?user_id=eq.${userId}&active=eq.true&select=*`);
+      habitsList=habs.map(h=>h.name+(h.goal?' ('+h.goal+')':'')).join(', ');
+    }catch(e){}
+    let tasksList='';
+    try{
+      const tsks=await api('GET',`/rest/v1/tasks?user_id=eq.${userId}&done=eq.false&select=*&order=date.asc&limit=10`);
+      tasksList=tsks.map(t=>t.name+' ('+t.date+')').join(', ');
+    }catch(e){}
+    const profile=getUserProfile();
+    const systemPrompt = `Eres el asistente de entrenamiento personal de ${profile.name} dentro de su app FitNes.
+Perfil: ${profile.level}, deporte: ${profile.sport||'general'}, objetivo: ${profile.goal}.
+Días entrenados: ${totalDays}.
+Rutinas actuales: ${routineNames.join('; ') || 'ninguna aún'}.
+Ejercicios completados recientemente: ${doneNames.slice(0,15).join(', ') || 'ninguno aún'}.
+Hábitos activos: ${habitsList || 'ninguno aún'}.
+Tareas pendientes: ${tasksList || 'ninguna'}.
+Puedes responder sobre cualquier tema relacionado con la app: rutinas, ejercicios, hábitos, tareas, progreso, recomendaciones, nutrición, etc.
+Responde siempre en español, de forma concisa y práctica. Usa emojis con moderación. Máximo 200 palabras por respuesta.`;
+
+    const res = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        max_tokens: 400,
+        system: systemPrompt,
+        messages: aiChatHistory.slice(-6)
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || 'No pude generar respuesta.';
+    aiChatHistory.push({role: 'assistant', content: reply});
+
+    document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">${reply.split('\n').join('<br>')}</div>`;
+  } catch(e) {
+    document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">Error al conectar con la IA. Intenta de nuevo.</div>`;
+  }
+  aiLoading = false;
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+
+async function applyRoutineToday(routineId){
+  try{
+    const today=todayStr();
+    const routines=await api('GET',`/rest/v1/routines?id=eq.${routineId}&user_id=eq.${userId}&select=*,exercises(*)`);
+    if(!routines.length){showToast('Rutina no encontrada');return;}
+    const exs=routines[0].exercises||[];
+    if(!exs.length){showToast('La rutina no tiene ejercicios');return;}
+    const existingLogs=await api('GET',`/rest/v1/daily_logs?user_id=eq.${userId}&date=eq.${today}&select=exercise_id`);
+    const existingIds=new Set(existingLogs.map(l=>l.exercise_id));
+    let added=0;
+    for(const e of exs){
+      if(!existingIds.has(e.id)){
+        await api('POST','/rest/v1/daily_logs',{user_id:userId,date:today,exercise_id:e.id,done:false});
+        added++;
+      }
+    }
+    showToast(added>0?'Rutina aplicada: '+added+' ejercicios añadidos':'Ejercicios ya estaban en el día');
+  }catch(e){showToast('Error: '+e.message);}
+}
+
+// ========== END AI MODULE ==========
+
+// ========== PROFILE MODULE ==========
+function loadProfileTab(){
+  const p = getUserProfile();
+  document.getElementById('p-name').value = p.name || '';
+  document.getElementById('p-level').value = p.level || 'Intermedio (1-3 años)';
+  document.getElementById('p-sport').value = p.sport || '';
+  document.getElementById('p-goal').value = p.goal || '';
+  document.getElementById('profile-avatar-big').textContent = (p.name||userEmail).charAt(0).toUpperCase();
+  document.getElementById('profile-email-display').textContent = userEmail;
+}
+
+function saveProfile(){
+  const profile = {
+    name: document.getElementById('p-name').value.trim() || userEmail.split('@')[0],
+    level: document.getElementById('p-level').value,
+    sport: document.getElementById('p-sport').value.trim(),
+    goal: document.getElementById('p-goal').value.trim()
+  };
+  localStorage.setItem('fitnes_profile_'+userId, JSON.stringify(profile));
+  // Update avatar in topbar
+  document.getElementById('user-avatar').textContent = profile.name.charAt(0).toUpperCase();
+  showToast('Perfil guardado ✓');
+}
+// ========== END PROFILE MODULE ==========
+
+
+</script>
+</body>
+</html><title>FitNes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@300;400;500&display=swap" rel="stylesheet"/>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css"/>
