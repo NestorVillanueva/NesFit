@@ -1197,15 +1197,26 @@ Da una recomendación MUY CONCISA (máximo 3 líneas) de qué debería entrenar 
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        max_tokens: 200,
+        max_tokens: 150,
+        system: 'Eres un entrenador personal. Responde en español, máximo 3 líneas, sin saludos.',
         messages: [{role: 'user', content: prompt}]
       })
     });
     const data = await res.json();
-    const text = data.content?.[0]?.text || 'No se pudo generar recomendación.';
+    if(data.error){throw new Error('API error');}
+    const text = data.content?.[0]?.text || '';
+    if(!text) throw new Error('empty');
     el.innerHTML = `<div style="font-size:14px;line-height:1.6;color:var(--text)">${text.split('\n').join('<br>')}</div>`;
   } catch(e) {
-    el.innerHTML = '<div style="font-size:13px;color:var(--muted)">Enfócate hoy en piernas y explosividad para mejorar tu salto.</div>';
+    // Show static fallback instead of calling AI - saves quota
+    const profile=getUserProfile();
+    const fallbacks=[
+      'Trabaja explosividad hoy: box jumps 4x8 + sprints 6x30m. Clave para tu salto.',
+      'Sesión de piernas: sentadilla 4x6 pesado + hip thrust 3x10. Prioridad para baloncesto.',
+      'Core y movilidad hoy. Plancha 3x45s + rotaciones con banda. Base atlética esencial.',
+      'Tren superior: press banca 4x8 + remo 4x10. Equilibra el trabajo de esta semana.'
+    ];
+    el.innerHTML = `<div style="font-size:14px;line-height:1.6;color:var(--text)">${fallbacks[new Date().getDay()%fallbacks.length]}</div>`;
   }
 }
 
