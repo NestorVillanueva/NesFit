@@ -600,7 +600,7 @@ Lunges 3x10"></textarea>
     <input type="hidden" id="day-ex-id"/>
     <input type="hidden" id="day-log-id"/>
     <input type="hidden" id="day-ex-date"/>
-    <p style="font-size:12px;color:var(--muted);margin-bottom:12px">Edita los valores reales que hiciste hoy. No modifica la rutina base.</p>
+    <p style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5">Edita los valores que hiciste hoy. No modifica la rutina base.</p>
     <div class="form-row">
       <label class="form-label">Series</label>
       <input type="number" id="day-ex-sets" class="inp" placeholder="4" min="1"/>
@@ -789,14 +789,14 @@ function renderSection(cid,items,cat,today){
       <div class="check" onclick="toggleLog('${item.id}','${cat}','${item.done}','${item.log_id||''}','${today}')">
         ${item.done?'<i class="ti ti-check"></i>':''}
       </div>
-      <div class="item-body" ${cat==='gym'&&item.log_id?`onclick="event.stopPropagation();openEditDayExercise('${item.id}','${item.log_id}','${today}')" style="cursor:pointer"`:''}>
-        <div class="item-name">${item.name}${cat==='gym'&&item.log_id?'<i class="ti ti-pencil" style="font-size:11px;color:var(--muted);margin-left:5px"></i>':''}</div>
-        ${(()=>{const dm=item._dm;const s=dm&&dm.sets?dm.sets:item.sets;const r=dm&&dm.reps?dm.reps:(item.reps||null);const w=dm&&dm.weight?dm.weight:item.weight;return s?`<div class="item-meta">${s} × ${r||'?'}${w?' · '+w:''}</div>`:w?`<div class="item-meta">${w}</div>`:item.goal?`<div class="item-meta">${item.goal}</div>`:''})()}
+      <div class="item-body">
+        <div class="item-name">${item.name}</div>
+        ${(()=>{const dm=item._dm;const s=dm&&dm.sets?dm.sets:item.sets;const r=dm&&dm.reps?dm.reps:(item.reps||null);const w=dm&&dm.weight?dm.weight:item.weight;const mark=dm?'<span style="color:var(--blue);font-size:10px;margin-left:4px">•editado</span>':'';return s?`<div class="item-meta">${s} × ${r||'?'}${w?' · '+w:''}${mark}</div>`:w?`<div class="item-meta">${w}${mark}</div>`:item.goal?`<div class="item-meta">${item.goal}</div>`:''})()}
       </div>
       <span class="tag tag-${cat}">${cat==='gym'?'Gym':cat==='habit'?'Hábito':'Tarea'}</span>
       ${cat==='task'?`<button class="item-del" onclick="event.stopPropagation();delTask('${item.id}')"><i class="ti ti-x"></i></button>`:''}
       ${cat==='habit'?`<button class="item-del" onclick="event.stopPropagation();delHabit('${item.id}')"><i class="ti ti-x"></i></button>`:''}
-      ${cat==='gym'?`<button class="item-del" onclick="event.stopPropagation();delTodayExercise('${item.id}','${item.log_id||''}')"><i class="ti ti-x"></i></button>`:''}
+      ${cat==='gym'?`<button class="item-del" style="color:var(--blue)" onclick="event.stopPropagation();openEditDayExercise('${item.id}','${item.log_id||''}','${today}')" title="Editar"><i class="ti ti-pencil-minus"></i></button><button class="item-del" onclick="event.stopPropagation();delTodayExercise('${item.id}','${item.log_id||''}')"><i class="ti ti-x"></i></button>`:''}
     </div>`).join('');
 }
 
@@ -978,11 +978,15 @@ async function loadRoutines(){
 function toggleRoutine(id){document.getElementById(id)?.classList.toggle('open');}
 
 async function delRoutine(id){
-  if(!confirm('¿Eliminar esta rutina y todos sus ejercicios?'))return;
+  if(!confirm('¿Eliminar esta rutina?'))return;
   try{
-    const exs=await api('GET',`/rest/v1/exercises?routine_id=eq.${id}&user_id=eq.${userId}&select=id`);
-    for(const ex of exs){await api('DELETE',`/rest/v1/daily_logs?exercise_id=eq.${ex.id}&user_id=eq.${userId}`);}
-    await api('DELETE',`/rest/v1/exercises?routine_id=eq.${id}&user_id=eq.${userId}`);
+    // Fetch exercises by routine_id (RLS ensures user ownership)
+    const exs=await api('GET',`/rest/v1/exercises?routine_id=eq.${id}&select=id`);
+    // Delete logs and exercises one by one to respect FK order
+    for(const ex of exs){
+      await api('DELETE',`/rest/v1/daily_logs?exercise_id=eq.${ex.id}`);
+      await api('DELETE',`/rest/v1/exercises?id=eq.${ex.id}`);
+    }
     await api('DELETE',`/rest/v1/routines?id=eq.${id}&user_id=eq.${userId}`);
     loadRoutines();showToast('Eliminada');
   }catch(e){showToast('Error: '+e.message);}
@@ -1661,17 +1665,21 @@ async function openEditRoutine(id, name, days){
   exList.innerHTML='<div class="loading">Cargando</div>';
   document.getElementById('modal-edit-routine').classList.add('open');
   try{
-    const exs=await api('GET',`/rest/v1/exercises?routine_id=eq.${id}&user_id=eq.${userId}&order=order_index.asc&select=*`);
+    const exs=await api('GET',`/rest/v1/exercises?routine_id=eq.${id}&order=order_index.asc&select=*`);
     exList.innerHTML='';
     if(exs.length){exs.forEach(ex=>addEditExRow(ex));}else{addEditExRow();}
   }catch(e){exList.innerHTML='';addEditExRow();}
 }
 
 function addEditExRow(ex){
-  const uid='eer'+Date.now()+Math.random().toString(36).slice(2);
+  const uid='eer'+Date.now()+Math.random().toString(36).slice(2,6);
   const d=document.createElement('div');
   d.className='ex-inp-row';d.id=uid;d.dataset.exId=ex&&ex.id?ex.id:'';
-  d.innerHTML='<input type="text" placeholder="Ejercicio" value="'+(ex&&ex.name?ex.name.replace(/"/g,"'"):"")+'"\/><input type="number" placeholder="Series" min="1" value="'+(ex&&ex.sets?ex.sets:"")+'"\/><input type="number" placeholder="Reps" min="1" value="'+(ex&&ex.reps?ex.reps:"")+'"\/><input type="text" placeholder="Peso" value="'+(ex&&ex.weight?ex.weight.replace(/"/g,"'"):"")+'"\/><button onclick="document.getElementById(''+uid+'').remove()"><i class="ti ti-x"><\/i><\/button>';
+  const nm=ex&&ex.name?ex.name.replace(/"/g,"'"):'';
+  const st=ex&&ex.sets?ex.sets:'';
+  const rp=ex&&ex.reps?ex.reps:'';
+  const wt=ex&&ex.weight?String(ex.weight).replace(/"/g,"'"):'';
+  d.innerHTML='<input type="text" placeholder="Ejercicio" value="'+nm+'"/><input type="number" placeholder="Series" min="1" value="'+st+'"/><input type="number" placeholder="Reps" min="1" value="'+rp+'"/><input type="text" placeholder="Peso" value="'+wt+'"/><button onclick="document.getElementById(''+uid+'').remove()"><i class="ti ti-x"></i></button>';
   document.getElementById('edit-ex-list').appendChild(d);
 }
 
@@ -1689,13 +1697,13 @@ async function saveEditRoutine(){
   });
   try{
     await api('PATCH',`/rest/v1/routines?id=eq.${id}&user_id=eq.${userId}`,{name,days});
-    const existingExs=await api('GET',`/rest/v1/exercises?routine_id=eq.${id}&user_id=eq.${userId}&select=id`);
+    const existingExs=await api('GET',`/rest/v1/exercises?routine_id=eq.${id}&select=id`);
     const existingIds=new Set(existingExs.map(e=>e.id));
     const keptIds=new Set(newExs.filter(e=>e.exId).map(e=>e.exId));
     for(const ex of existingExs){
       if(!keptIds.has(ex.id)){
-        await api('DELETE',`/rest/v1/daily_logs?exercise_id=eq.${ex.id}&user_id=eq.${userId}`);
-        await api('DELETE',`/rest/v1/exercises?id=eq.${ex.id}&user_id=eq.${userId}`);
+        await api('DELETE',`/rest/v1/daily_logs?exercise_id=eq.${ex.id}`);
+        await api('DELETE',`/rest/v1/exercises?id=eq.${ex.id}`);
       }
     }
     for(const ex of newExs){
@@ -1921,19 +1929,27 @@ async function applyAndClose(routineId){
   await applyRoutineToday(routineId);
 }
 
-async function openEditDayExercise(exId, logId, date){
-  if(!logId||logId==='undefined'||logId==='')return;
+async function openEditDayExercise(exId,logId,date){
   try{
-    const [exArr, logArr]=await Promise.all([
-      api('GET',`/rest/v1/exercises?id=eq.${exId}&user_id=eq.${userId}&select=*&limit=1`),
-      api('GET',`/rest/v1/daily_logs?id=eq.${logId}&user_id=eq.${userId}&select=notes&limit=1`)
-    ]);
+    const exArr=await api('GET',`/rest/v1/exercises?id=eq.${exId}&select=*&limit=1`);
     const ex=exArr[0];if(!ex)return;
     let dm={sets:'',reps:'',weight:'',text:''};
-    try{const n=logArr[0]?.notes||'';if(n.startsWith('{')){const m=JSON.parse(n);dm={sets:m.sets||'',reps:m.reps||'',weight:m.weight||'',text:m.text||''};} else if(n){dm.text=n;}}catch(e){}
+    // If no log yet, create one first
+    let resolvedLogId=logId;
+    if(!logId||logId==='undefined'||logId===''){
+      const newLog=await api('POST','/rest/v1/daily_logs',{user_id:userId,date:date,exercise_id:exId,done:false});
+      resolvedLogId=newLog&&newLog[0]?newLog[0].id:'';
+    } else {
+      try{
+        const logArr=await api('GET',`/rest/v1/daily_logs?id=eq.${logId}&select=notes&limit=1`);
+        const n=logArr[0]?.notes||'';
+        if(n.startsWith('{')){const m=JSON.parse(n);dm={sets:m.sets||'',reps:m.reps||'',weight:m.weight||'',text:m.text||''};}
+        else if(n){dm.text=n;}
+      }catch(e){}
+    }
     document.getElementById('day-ex-title').textContent=ex.name;
     document.getElementById('day-ex-id').value=exId;
-    document.getElementById('day-log-id').value=logId;
+    document.getElementById('day-log-id').value=resolvedLogId||'';
     document.getElementById('day-ex-date').value=date;
     document.getElementById('day-ex-sets').value=dm.sets||ex.sets||'';
     document.getElementById('day-ex-reps').value=dm.reps||(ex.reps||'');
@@ -1945,6 +1961,7 @@ async function openEditDayExercise(exId, logId, date){
 
 async function saveDayExercise(){
   const logId=document.getElementById('day-log-id').value;
+  if(!logId){showToast('Error: sin log');return;}
   const sets=document.getElementById('day-ex-sets').value.trim();
   const reps=document.getElementById('day-ex-reps').value.trim();
   const weight=document.getElementById('day-ex-weight').value.trim();
