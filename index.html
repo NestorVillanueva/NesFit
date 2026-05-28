@@ -492,6 +492,35 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
   </div>
 </div>
 
+<!-- MODAL EDIT ROUTINE -->
+<div class="modal-bg" id="modal-edit-routine">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Editar rutina</div>
+    <input type="hidden" id="edit-routine-id"/>
+    <div class="form-row">
+      <label class="form-label">Nombre</label>
+      <input type="text" id="edit-routine-name" class="inp" placeholder="Nombre de la rutina"/>
+    </div>
+    <div class="form-row">
+      <label class="form-label">Días</label>
+      <div class="days-select" id="edit-days-select">
+        <button class="day-btn edit-day-btn" data-day="0">Lun</button>
+        <button class="day-btn edit-day-btn" data-day="1">Mar</button>
+        <button class="day-btn edit-day-btn" data-day="2">Mié</button>
+        <button class="day-btn edit-day-btn" data-day="3">Jue</button>
+        <button class="day-btn edit-day-btn" data-day="4">Vie</button>
+        <button class="day-btn edit-day-btn" data-day="5">Sáb</button>
+        <button class="day-btn edit-day-btn" data-day="6">Dom</button>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cl" onclick="closeModals()">Cancelar</button>
+      <button class="btn-save" onclick="saveEditRoutine()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL TEXT IMPORT -->
 <div class="modal-bg" id="modal-text-import">
   <div class="modal">
@@ -715,6 +744,8 @@ function renderSection(cid,items,cat,today){
       </div>
       <span class="tag tag-${cat}">${cat==='gym'?'Gym':cat==='habit'?'Hábito':'Tarea'}</span>
       ${cat==='task'?`<button class="item-del" onclick="event.stopPropagation();delTask('${item.id}')"><i class="ti ti-x"></i></button>`:''}
+      ${cat==='habit'?`<button class="item-del" onclick="event.stopPropagation();delHabit('${item.id}')"><i class="ti ti-x"></i></button>`:''}
+      ${cat==='gym'?`<button class="item-del" onclick="event.stopPropagation();delTodayExercise('${item.id}','${item.log_id||''}')"><i class="ti ti-x"></i></button>`:''}
     </div>`).join('');
 }
 
@@ -874,7 +905,8 @@ async function loadRoutines(){
             <div class="routine-days">${DAYS_SHORT.map((d,i)=>`<span class="day-pill${rt.days&&rt.days.includes(String(i))?' active':''}">${d}</span>`).join('')}</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <button class="item-del" onclick="event.stopPropagation();delRoutine('${rt.id}')"><i class="ti ti-trash"></i></button>
+            <button class="item-del" onclick="event.stopPropagation();openEditRoutine('${rt.id}','${rt.name}',${JSON.stringify(rt.days||[])})" title="Editar"><i class="ti ti-pencil"></i></button>
+            <button class="item-del" onclick="event.stopPropagation();delRoutine('${rt.id}')" title="Eliminar"><i class="ti ti-trash"></i></button>
             <i class="ti ti-chevron-down" style="color:var(--muted)"></i>
           </div>
         </div>
@@ -885,6 +917,7 @@ async function loadRoutines(){
               <div class="ex-num">${i+1}</div>
               <div class="ex-name">${e.name}</div>
               <div class="ex-detail">${e.sets?e.sets+'×'+(e.reps||'?')+(e.weight?' · '+e.weight:''):''}</div>
+              <button onclick="event.stopPropagation();delExercise('${e.id}')" class="item-del" title="Eliminar ejercicio"><i class="ti ti-x"></i></button>
             </div>`).join('')}
         </div>
       </div>`).join('');
@@ -1040,6 +1073,7 @@ window.onload = async function(){
   document.getElementById('mi-name').addEventListener('keydown',e=>{if(e.key==='Enter')saveQuickItem();});
   document.getElementById('days-select').addEventListener('click',e=>{const b=e.target.closest('.day-btn');if(b)b.classList.toggle('sel');});
   document.getElementById('habit-days-select').addEventListener('click',e=>{const b=e.target.closest('.habit-day-btn');if(b)b.classList.toggle('sel');});
+  document.getElementById('edit-days-select').addEventListener('click',e=>{const b=e.target.closest('.edit-day-btn');if(b)b.classList.toggle('sel');});
 
   // Pre-fill saved email
   const savedEmail=localStorage.getItem('fitnes_last_email');
@@ -1529,6 +1563,61 @@ async function applyRoutineToday(routineId){
 }
 
 // ========== END AI MODULE ==========
+
+// ========== DELETE & EDIT FUNCTIONS ==========
+async function delExercise(exId){
+  if(!confirm('¿Eliminar este ejercicio?'))return;
+  try{
+    await api('DELETE',`/rest/v1/exercises?id=eq.${exId}&user_id=eq.${userId}`);
+    showToast('Ejercicio eliminado');
+    loadRoutines();
+    loadToday();
+  }catch(e){showToast('Error');}
+}
+
+async function delHabit(habitId){
+  if(!confirm('¿Eliminar este hábito?'))return;
+  try{
+    await api('PATCH',`/rest/v1/habits?id=eq.${habitId}&user_id=eq.${userId}`,{active:false});
+    showToast('Hábito eliminado');
+    loadToday();
+  }catch(e){showToast('Error');}
+}
+
+async function delTodayExercise(exId, logId){
+  if(!confirm('¿Quitar este ejercicio de hoy?'))return;
+  try{
+    if(logId && logId !== 'undefined' && logId !== ''){
+      await api('DELETE',`/rest/v1/daily_logs?id=eq.${logId}&user_id=eq.${userId}`);
+    }
+    showToast('Ejercicio quitado del día');
+    loadToday();
+  }catch(e){showToast('Error');}
+}
+
+function openEditRoutine(id, name, days){
+  document.getElementById('edit-routine-id').value = id;
+  document.getElementById('edit-routine-name').value = name;
+  document.querySelectorAll('.edit-day-btn').forEach(b=>{
+    b.classList.toggle('sel', days.includes(b.dataset.day));
+  });
+  document.getElementById('modal-edit-routine').classList.add('open');
+}
+
+async function saveEditRoutine(){
+  const id = document.getElementById('edit-routine-id').value;
+  const name = document.getElementById('edit-routine-name').value.trim();
+  if(!name){showToast('Escribe un nombre');return;}
+  const days = Array.from(document.querySelectorAll('.edit-day-btn.sel')).map(b=>b.dataset.day);
+  try{
+    await api('PATCH',`/rest/v1/routines?id=eq.${id}&user_id=eq.${userId}`,{name,days});
+    showToast('Rutina actualizada ✓');
+    closeModals();
+    loadRoutines();
+  }catch(e){showToast('Error: '+e.message);}
+}
+// ========== END DELETE & EDIT ==========
+
 
 // ========== IMPORT MODULE ==========
 function openTextImport(){
