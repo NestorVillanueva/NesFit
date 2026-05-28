@@ -1402,8 +1402,9 @@ Responde en español, conciso, máximo 150 palabras. Sin JSON ni formatos especi
     let reply = data.content?.[0]?.text || 'No pude generar respuesta.';
 
     // PASO 2: Si el usuario pide una acción, segunda llamada solo para parsear
-    const actionKeywords = ['crea','crear','añade','añadir','agrega','agregar','modifica','modificar','actualiza','actualizar','nueva rutina','nuevo hábito','nueva tarea','ponme','cambia','aplica','aplicar','añademe','ponme la rutina','aplicame'];
+    const actionKeywords = ['crea','crear','añade','añadir','agrega','agregar','modifica','modificar','actualiza','actualizar','nueva rutina','nuevo hábito','nueva tarea','ponme','cambia','aplica','aplicar','añademe','ponme la rutina','aplicame','rutina','ejercicio'];
     const wantsAction = actionKeywords.some(k=>msg.toLowerCase().includes(k));
+    console.log('msg:', msg, '| wantsAction:', wantsAction);
     let actionResults = '';
     if(wantsAction){
       const actionPrompt = `El usuario pidió: "${msg}"
