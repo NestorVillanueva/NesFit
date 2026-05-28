@@ -296,6 +296,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
       <div id="ai-dashboard"></div>
       <div class="section-row" style="margin-top:.5rem">
         <span class="section-label">Asistente IA</span>
+        <button onclick="clearAIMemory()" style="background:transparent;border:1px solid var(--s3);border-radius:8px;color:var(--muted);cursor:pointer;font-size:11px;padding:4px 10px;font-family:Archivo,sans-serif">🗑 Limpiar</button>
       </div>
       <div id="ai-chat-messages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:10px;min-height:100px"></div>
       <div style="display:flex;gap:8px;margin-bottom:1rem">
@@ -575,12 +576,15 @@ function doLogout(){
   document.getElementById('main-screen').style.display='none';
 }
 
-function initApp(){
+async function initApp(){
   document.getElementById('auth-screen').style.display='none';
   document.getElementById('main-screen').style.display='flex';
   document.getElementById('user-avatar').textContent=userEmail.charAt(0).toUpperCase();
-  // Load profile name for avatar
-  try{const p=getUserProfile();if(p&&p.name)document.getElementById('user-avatar').textContent=p.name.charAt(0).toUpperCase();}catch(e){}
+  // Fetch profile from Supabase
+  await fetchProfile();
+  if(_cachedProfile&&_cachedProfile.name){
+    document.getElementById('user-avatar').textContent=_cachedProfile.name.charAt(0).toUpperCase();
+  }
   loadToday();loadNotifSettings();
 }
 
@@ -1042,12 +1046,19 @@ window.onload = async function(){
 };
 
 // ========== AI MODULE ==========
+let _cachedProfile=null;
 function getUserProfile(){
-  try{
-    const s=localStorage.getItem('fitnes_profile_'+userId);
-    if(s) return JSON.parse(s);
-  }catch(e){}
+  if(_cachedProfile) return _cachedProfile;
+  // fallback while loading
   return {name: userEmail.split('@')[0], goal:'Mejorar mi condición física general.', level:'Intermedio (1-3 años)', sport:'Fitness'};
+}
+async function fetchProfile(){
+  try{
+    const data=await api('GET',`/rest/v1/user_profiles?user_id=eq.${userId}&select=*&limit=1`);
+    if(data&&data[0]){
+      _cachedProfile={name:data[0].name||userEmail.split('@')[0],level:data[0].level||'Intermedio (1-3 años)',sport:data[0].sport||'Fitness',goal:data[0].goal||'Mejorar mi condición física general.'};
+    }
+  }catch(e){}
 }
 
 const MUSCLE_GROUPS = {
@@ -1067,6 +1078,7 @@ let aiLoading = false;
 async function loadAIDashboard() {
   const dashEl = document.getElementById('ai-dashboard');
   dashEl.innerHTML = '<div class="loading">Analizando tu entrenamiento...</div>';
+  await loadAIMemory();
   try {
     const [logs, exercises, tasks] = await Promise.all([
       api('GET', `/rest/v1/daily_logs?user_id=eq.${userId}&select=*&order=date.desc&limit=50`),
@@ -1199,16 +1211,96 @@ Da una recomendación MUY CONCISA (máximo 3 líneas) de qué debería entrenar 
 
 function renderAISuggestions() {
   const chips = [
-    '¿Qué debo entrenar esta semana?',
-    'Ejercicios para saltar más',
-    'Plan para ganar músculo y definir',
-    '¿Cómo mejorar mi aceleración?',
-    'Analiza mi progreso',
-    'Rutina de baloncesto'
+    '¿Qué debo entrenar hoy?',
+    'Crea una rutina de piernas para baloncesto',
+    'Añade sentadillas a mi rutina',
+    'Analiza mi progreso esta semana',
+    '¿Cómo mejorar mi salto vertical?',
+    'Crea un hábito de estiramientos diarios'
   ];
   document.getElementById('ai-suggestions').innerHTML = chips.map(c =>
     `<button class="suggestion-chip" onclick="sendAIMessage('${c}')">${c}</button>`
   ).join('');
+}
+
+async function loadAIMemory(){
+  try{
+    const msgs=await api('GET',`/rest/v1/ai_memory?user_id=eq.${userId}&order=created_at.asc&limit=30&select=role,content`);
+    aiChatHistory=msgs.map(m=>({role:m.role,content:m.content}));
+    const chatEl=document.getElementById('ai-chat-messages');
+    if(msgs.length>0){
+      chatEl.innerHTML=msgs.map(m=>`<div class="msg-bubble msg-${m.role==='user'?'user':'ai'}">${m.content.split('\n').join('<br>')}</div>`).join('');
+      chatEl.scrollTop=chatEl.scrollHeight;
+    }
+  }catch(e){}
+}
+
+async function saveAIMessage(role,content){
+  try{await api('POST','/rest/v1/ai_memory',{user_id:userId,role,content});}catch(e){}
+}
+
+async function clearAIMemory(){
+  if(!confirm('¿Borrar toda la memoria de conversaciones?'))return;
+  try{
+    await api('DELETE',`/rest/v1/ai_memory?user_id=eq.${userId}`);
+    aiChatHistory=[];
+    document.getElementById('ai-chat-messages').innerHTML='';
+    showToast('Memoria borrada ✓');
+  }catch(e){showToast('Error');}
+}
+
+async function executeAIAction(action){
+  try{
+    const a=JSON.parse(action);
+    if(a.type==='create_routine'){
+      const rt=await api('POST','/rest/v1/routines',{user_id:userId,name:a.name,days:a.days||[]});
+      const rtId=rt[0]?.id;
+      if(rtId&&a.exercises){
+        for(let i=0;i<a.exercises.length;i++){
+          const e=a.exercises[i];
+          await api('POST','/rest/v1/exercises',{user_id:userId,routine_id:rtId,name:e.name,sets:e.sets||null,reps:e.reps||null,weight:e.weight||null,order_index:i});
+        }
+      }
+      return `✅ Rutina "${a.name}" creada con ${(a.exercises||[]).length} ejercicios.`;
+    }
+    if(a.type==='add_exercise_to_routine'){
+      const rts=await api('GET',`/rest/v1/routines?user_id=eq.${userId}&name=ilike.*${a.routine_name}*&select=id,name`);
+      if(!rts.length)return `❌ No encontré la rutina "${a.routine_name}".`;
+      const rtId=rts[0].id;
+      const existing=await api('GET',`/rest/v1/exercises?routine_id=eq.${rtId}&select=order_index&order=order_index.desc&limit=1`);
+      const nextIdx=(existing[0]?.order_index||0)+1;
+      for(let i=0;i<a.exercises.length;i++){
+        const e=a.exercises[i];
+        await api('POST','/rest/v1/exercises',{user_id:userId,routine_id:rtId,name:e.name,sets:e.sets||null,reps:e.reps||null,weight:e.weight||null,order_index:nextIdx+i});
+      }
+      return `✅ ${a.exercises.length} ejercicio(s) añadido(s) a "${rts[0].name}".`;
+    }
+    if(a.type==='update_exercise'){
+      const exs=await api('GET',`/rest/v1/exercises?user_id=eq.${userId}&name=ilike.*${a.exercise_name}*&select=id,name&limit=1`);
+      if(!exs.length)return `❌ No encontré el ejercicio "${a.exercise_name}".`;
+      const upd={};
+      if(a.sets)upd.sets=a.sets;
+      if(a.reps)upd.reps=a.reps;
+      if(a.weight)upd.weight=a.weight;
+      await api('PATCH',`/rest/v1/exercises?id=eq.${exs[0].id}&user_id=eq.${userId}`,upd);
+      return `✅ Ejercicio "${exs[0].name}" actualizado.`;
+    }
+    if(a.type==='update_routine_days'){
+      const rts=await api('GET',`/rest/v1/routines?user_id=eq.${userId}&name=ilike.*${a.routine_name}*&select=id,name&limit=1`);
+      if(!rts.length)return `❌ No encontré la rutina "${a.routine_name}".`;
+      await api('PATCH',`/rest/v1/routines?id=eq.${rts[0].id}&user_id=eq.${userId}`,{days:a.days});
+      return `✅ Días de "${rts[0].name}" actualizados.`;
+    }
+    if(a.type==='create_habit'){
+      await api('POST','/rest/v1/habits',{user_id:userId,name:a.name,goal:a.goal||null,active:true,notify_time:a.days||null});
+      return `✅ Hábito "${a.name}" creado.`;
+    }
+    if(a.type==='create_task'){
+      await api('POST','/rest/v1/tasks',{user_id:userId,name:a.name,date:a.date||todayStr(),done:false});
+      return `✅ Tarea "${a.name}" creada para ${a.date||'hoy'}.`;
+    }
+  }catch(e){return '❌ Error ejecutando acción: '+e.message;}
+  return null;
 }
 
 async function sendAIMessage(preset) {
@@ -1225,53 +1317,77 @@ async function sendAIMessage(preset) {
   aiLoading = true;
 
   try {
-    const [logs, exercises, routines] = await Promise.all([
+    const [logs, exercises, routines, habits, tasks] = await Promise.all([
       api('GET', `/rest/v1/daily_logs?user_id=eq.${userId}&select=*&order=date.desc&limit=30`),
       api('GET', `/rest/v1/exercises?user_id=eq.${userId}&select=*`),
-      api('GET', `/rest/v1/routines?user_id=eq.${userId}&select=*,exercises(*)`)
+      api('GET', `/rest/v1/routines?user_id=eq.${userId}&select=*,exercises(*)`),
+      api('GET', `/rest/v1/habits?user_id=eq.${userId}&active=eq.true&select=*`),
+      api('GET', `/rest/v1/tasks?user_id=eq.${userId}&done=eq.false&select=*&order=date.asc&limit=10`)
     ]);
+
     const doneExIds = logs.filter(l => l.done && l.exercise_id).map(l => l.exercise_id);
     const doneNames = exercises.filter(e => doneExIds.includes(e.id)).map(e => e.name);
-    const routineNames = routines.map(r => `${r.name} (${(r.days||[]).map(d=>['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][d]).join(',')})`);
+    const routineDetails = routines.map(r => `${r.name} [días: ${(r.days||[]).map(d=>['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][d]).join(',')||'sin asignar'}] ejercicios: ${(r.exercises||[]).map(e=>e.name+(e.sets?' '+e.sets+'x'+(e.reps||'?')+(e.weight?' '+e.weight:''):'')).join(', ')}`);
     const totalDays = [...new Set(logs.map(l => l.date))].length;
+    const habitsList = habits.map(h=>h.name+(h.goal?' ('+h.goal+')':'')).join(', ');
+    const tasksList = tasks.map(t=>t.name+' ('+t.date+')').join(', ');
+    const profile = getUserProfile();
 
-    aiChatHistory.push({role: 'user', content: msg});
+    await saveAIMessage('user', msg);
+    aiChatHistory.push({role:'user', content:msg});
 
-    let habitsList='';
-    try{
-      const habs=await api('GET',`/rest/v1/habits?user_id=eq.${userId}&active=eq.true&select=*`);
-      habitsList=habs.map(h=>h.name+(h.goal?' ('+h.goal+')':'')).join(', ');
-    }catch(e){}
-    let tasksList='';
-    try{
-      const tsks=await api('GET',`/rest/v1/tasks?user_id=eq.${userId}&done=eq.false&select=*&order=date.asc&limit=10`);
-      tasksList=tsks.map(t=>t.name+' ('+t.date+')').join(', ');
-    }catch(e){}
-    const profile=getUserProfile();
-    const systemPrompt = `Eres el asistente de entrenamiento personal de ${profile.name} dentro de su app FitNes.
+    const systemPrompt = `Eres el asistente de entrenamiento personal de ${profile.name} en su app FitNes.
 Perfil: ${profile.level}, deporte: ${profile.sport||'general'}, objetivo: ${profile.goal}.
 Días entrenados: ${totalDays}.
-Rutinas actuales: ${routineNames.join('; ') || 'ninguna aún'}.
-Ejercicios completados recientemente: ${doneNames.slice(0,15).join(', ') || 'ninguno aún'}.
-Hábitos activos: ${habitsList || 'ninguno aún'}.
-Tareas pendientes: ${tasksList || 'ninguna'}.
-Puedes responder sobre cualquier tema relacionado con la app: rutinas, ejercicios, hábitos, tareas, progreso, recomendaciones, nutrición, etc.
-Responde siempre en español, de forma concisa y práctica. Usa emojis con moderación. Máximo 200 palabras por respuesta.`;
+RUTINAS ACTUALES:
+${routineDetails.join('\n') || 'ninguna'}
+Ejercicios completados recientemente: ${doneNames.slice(0,15).join(', ') || 'ninguno'}
+Hábitos activos: ${habitsList || 'ninguno'}
+Tareas pendientes: ${tasksList || 'ninguna'}
+
+ACCIONES DISPONIBLES: Puedes modificar la app directamente. Si el usuario pide crear/modificar rutinas, ejercicios, hábitos o tareas, incluye al FINAL de tu respuesta un bloque JSON con el formato:
+ACTION:{"type":"create_routine","name":"Nombre","days":["0","1"],"exercises":[{"name":"Sentadilla","sets":4,"reps":10,"weight":"80kg"}]}
+ACTION:{"type":"add_exercise_to_routine","routine_name":"Nombre rutina","exercises":[{"name":"Ejercicio","sets":3,"reps":12}]}
+ACTION:{"type":"update_exercise","exercise_name":"Nombre","sets":4,"reps":8,"weight":"90kg"}
+ACTION:{"type":"update_routine_days","routine_name":"Nombre","days":["0","2","4"]}
+ACTION:{"type":"create_habit","name":"Nombre","goal":"Meta","days":"0,1,2,3,4"}
+ACTION:{"type":"create_task","name":"Nombre","date":"2026-05-29"}
+Solo incluye ACTION si el usuario pide explícitamente una acción. Responde en español, conciso, máximo 200 palabras.`;
 
     const res = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        max_tokens: 400,
+        max_tokens: 600,
         system: systemPrompt,
-        messages: aiChatHistory.slice(-6)
+        messages: aiChatHistory.slice(-12)
       })
     });
     const data = await res.json();
-    const reply = data.content?.[0]?.text || 'No pude generar respuesta.';
-    aiChatHistory.push({role: 'assistant', content: reply});
+    let reply = data.content?.[0]?.text || 'No pude generar respuesta.';
 
-    document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">${reply.split('\n').join('<br>')}</div>`;
+    // Execute any actions in the reply
+    const actionMatch = reply.match(/ACTION:(\{.*?\})/gs);
+    let actionResults = '';
+    if(actionMatch){
+      reply = reply.replace(/ACTION:\{.*?\}/gs, '').trim();
+      for(const a of actionMatch){
+        const json = a.replace('ACTION:','').trim();
+        const result = await executeAIAction(json);
+        if(result) actionResults += '\n'+result;
+      }
+    }
+
+    const fullReply = reply + (actionResults ? '\n\n'+actionResults : '');
+    await saveAIMessage('assistant', fullReply);
+    aiChatHistory.push({role:'assistant', content:fullReply});
+
+    document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">${fullReply.split('\n').join('<br>')}</div>`;
+
+    // Refresh today if actions were taken
+    if(actionResults){
+      setTimeout(()=>{loadToday();if(document.getElementById('tab-routines').classList.contains('active'))loadRoutines();},500);
+    }
   } catch(e) {
     document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">Error al conectar con la IA. Intenta de nuevo.</div>`;
   }
@@ -1302,27 +1418,43 @@ async function applyRoutineToday(routineId){
 // ========== END AI MODULE ==========
 
 // ========== PROFILE MODULE ==========
-function loadProfileTab(){
-  const p = getUserProfile();
-  document.getElementById('p-name').value = p.name || '';
-  document.getElementById('p-level').value = p.level || 'Intermedio (1-3 años)';
-  document.getElementById('p-sport').value = p.sport || '';
-  document.getElementById('p-goal').value = p.goal || '';
-  document.getElementById('profile-avatar-big').textContent = (p.name||userEmail).charAt(0).toUpperCase();
+async function loadProfileTab(){
   document.getElementById('profile-email-display').textContent = userEmail;
+  try{
+    const data=await api('GET',`/rest/v1/user_profiles?user_id=eq.${userId}&select=*&limit=1`);
+    if(data&&data[0]){
+      const p=data[0];
+      _cachedProfile={name:p.name||userEmail.split('@')[0],level:p.level||'Intermedio (1-3 años)',sport:p.sport||'Fitness',goal:p.goal||''};
+      document.getElementById('p-name').value=p.name||'';
+      document.getElementById('p-level').value=p.level||'Intermedio (1-3 años)';
+      document.getElementById('p-sport').value=p.sport||'';
+      document.getElementById('p-goal').value=p.goal||'';
+      document.getElementById('profile-avatar-big').textContent=(p.name||userEmail).charAt(0).toUpperCase();
+    } else {
+      document.getElementById('profile-avatar-big').textContent=userEmail.charAt(0).toUpperCase();
+    }
+  }catch(e){showToast('Error cargando perfil');}
 }
 
-function saveProfile(){
+async function saveProfile(){
   const profile = {
     name: document.getElementById('p-name').value.trim() || userEmail.split('@')[0],
     level: document.getElementById('p-level').value,
     sport: document.getElementById('p-sport').value.trim(),
     goal: document.getElementById('p-goal').value.trim()
   };
-  localStorage.setItem('fitnes_profile_'+userId, JSON.stringify(profile));
-  // Update avatar in topbar
-  document.getElementById('user-avatar').textContent = profile.name.charAt(0).toUpperCase();
-  showToast('Perfil guardado ✓');
+  try{
+    // Check if profile exists
+    const existing=await api('GET',`/rest/v1/user_profiles?user_id=eq.${userId}&select=id&limit=1`);
+    if(existing&&existing[0]){
+      await api('PATCH',`/rest/v1/user_profiles?user_id=eq.${userId}`,{...profile,updated_at:new Date().toISOString()});
+    } else {
+      await api('POST','/rest/v1/user_profiles',{user_id:userId,...profile});
+    }
+    _cachedProfile=profile;
+    document.getElementById('user-avatar').textContent=profile.name.charAt(0).toUpperCase();
+    showToast('Perfil guardado ✓');
+  }catch(e){showToast('Error guardando perfil: '+e.message);}
 }
 // ========== END PROFILE MODULE ==========
 
