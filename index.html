@@ -159,7 +159,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM San
     
   </div>
   <div class="auth-card">
-    <h3 id="auth-mode-title" style="font-size:1.1rem;line-height:1.4">Hola Nestor 👋<br><span style="color:var(--muted);font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:400;letter-spacing:0">Bienvenido a tu app</span></h3>
+    <h3 id="auth-mode-title" style="font-size:1.1rem;line-height:1.4">Hola Nestor 👋<br><span style="color:var(--muted);font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:400;letter-spacing:0">Bienvenido de nuevo</span></h3>
     <p class="err-msg" id="err-msg"></p>
     <input class="inp" id="auth-email" type="email" placeholder="Email" autocomplete="email"/>
     <input class="inp" id="auth-pass" type="password" placeholder="Contraseña" autocomplete="current-password"/>
@@ -167,7 +167,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM San
       <div class="toggle on" id="tog-remember" onclick="this.classList.toggle('on')" style="flex-shrink:0"></div>
       <span style="font-size:14px;color:var(--muted)">Mantener sesión iniciada</span>
     </label>
-    <button class="btn btn-primary" id="auth-btn" onclick="doAuth()">Registrarse</button>
+    <button class="btn btn-primary" id="auth-btn" onclick="doAuth()">Entrar</button>
     
   </div>
 </div>
@@ -346,7 +346,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM San
 <script>
 const SUPA_URL='https://rlzvprwvklsrnhxeapjo.supabase.co';
 const SUPA_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJsenZwcnd2a2xzcm5oeGVhcGpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk4ODcyMjIsImV4cCI6MjA5NTQ2MzIyMn0.x9EWqpwS_aRjIkViDr3-ELM07Oiukaptwi69Ccbefiw';
-let token=null,userId=null,userEmail='',isLogin=false;
+let token=null,userId=null,userEmail='',isLogin=true;
 const DAYS_ES=['Lunes','Martes','Miércoles','Jueves','Viernes','Sábado','Domingo'];
 const DAYS_SHORT=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'];
 const MONTHS_ES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
