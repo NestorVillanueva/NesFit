@@ -1409,9 +1409,15 @@ Responde en español, conciso, máximo 150 palabras. Sin JSON ni formatos especi
     if(wantsAction){
       const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate()+1);
       const tomorrowStr = tomorrow.toISOString().split('T')[0];
+      // Build next 7 days map for the AI
+      const nextDays = {};
+      const dayNames = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+      for(let i=0;i<7;i++){const d=new Date();d.setDate(d.getDate()+i);nextDays[dayNames[d.getDay()]]=d.toISOString().split('T')[0];}
+      const daysContext = Object.entries(nextDays).map(([k,v])=>`${k}=${v}`).join(', ');
       const actionPrompt = `El usuario pidió: "${msg}"
 Rutinas existentes: ${routineDetails.join(' | ')||'ninguna'}
-Hoy es ${todayStr()}. Mañana es ${tomorrowStr}.
+Hoy es ${todayStr()} (${dayNames[new Date().getDay()]}). Mañana es ${tomorrowStr}.
+Próximos días: ${daysContext}.
 
 IMPORTANTE - distingue bien estos casos:
 - "añade/aplica/pon la rutina X a [fecha/dia]" = quiere poner los ejercicios de esa rutina en ese dia del calendario = ACTION_APPLY_ROUTINE
