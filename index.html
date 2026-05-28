@@ -1327,6 +1327,25 @@ async function executeAIAction(actionLine){
       await api('POST','/rest/v1/tasks',{user_id:userId,name,date,done:false});
       return `✅ Tarea "${name}" para ${date}.`;
     }
+
+    if(type==='ACTION_APPLY_ROUTINE'){
+      const routineName=parts[1];
+      const date=parts[2]||todayStr();
+      const rts=await api('GET',`/rest/v1/routines?user_id=eq.${userId}&name=ilike.*${encodeURIComponent(routineName)}*&select=*,exercises(*)&limit=1`);
+      if(!rts.length)return `❌ No encontré la rutina "${routineName}".`;
+      const exs=rts[0].exercises||[];
+      if(!exs.length)return `❌ La rutina "${rts[0].name}" no tiene ejercicios.`;
+      const existingLogs=await api('GET',`/rest/v1/daily_logs?user_id=eq.${userId}&date=eq.${date}&select=exercise_id`);
+      const existingIds=new Set(existingLogs.map(l=>l.exercise_id));
+      let added=0;
+      for(const e of exs){
+        if(!existingIds.has(e.id)){
+          await api('POST','/rest/v1/daily_logs',{user_id:userId,date,exercise_id:e.id,done:false});
+          added++;
+        }
+      }
+      return `✅ Rutina "${rts[0].name}" aplicada al ${date} con ${added} ejercicios.`;
+    }
   }catch(e){return '❌ Error: '+e.message;}
   return null;
 }
@@ -1383,7 +1402,7 @@ Responde en español, conciso, máximo 150 palabras. Sin JSON ni formatos especi
     let reply = data.content?.[0]?.text || 'No pude generar respuesta.';
 
     // PASO 2: Si el usuario pide una acción, segunda llamada solo para parsear
-    const actionKeywords = ['crea','crear','añade','añadir','agrega','agregar','modifica','modificar','actualiza','actualizar','nueva rutina','nuevo hábito','nueva tarea','ponme','cambia'];
+    const actionKeywords = ['crea','crear','añade','añadir','agrega','agregar','modifica','modificar','actualiza','actualizar','nueva rutina','nuevo hábito','nueva tarea','ponme','cambia','aplica','aplicar','añademe','ponme la rutina','aplicame'];
     const wantsAction = actionKeywords.some(k=>msg.toLowerCase().includes(k));
     let actionResults = '';
     if(wantsAction){
@@ -1396,7 +1415,9 @@ ACTION_UPDATE_EXERCISE|nombre_ejercicio|series|reps|peso
 ACTION_UPDATE_DAYS|nombre_rutina|0,1,2
 ACTION_CREATE_HABIT|nombre|meta|dias
 ACTION_CREATE_TASK|nombre|YYYY-MM-DD
+ACTION_APPLY_ROUTINE|nombre_rutina|YYYY-MM-DD
 Dias: 0=Lun 1=Mar 2=Mie 3=Jue 4=Vie 5=Sab 6=Dom
+Hoy es ${todayStr()}. Si dicen "hoy" usa la fecha de hoy, si dicen un dia de la semana o fecha especifica calcula la fecha correcta en formato YYYY-MM-DD.
 Si no hay accion clara responde exactamente: NO_ACTION`;
 
       const res2 = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
