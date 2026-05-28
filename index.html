@@ -1356,56 +1356,57 @@ async function sendAIMessage(preset) {
     const systemPrompt = `Eres el asistente de entrenamiento personal de ${profile.name} en su app FitNes.
 Perfil: ${profile.level}, deporte: ${profile.sport||'general'}, objetivo: ${profile.goal}.
 Días entrenados: ${totalDays}.
-RUTINAS ACTUALES:
-${routineDetails.join('\n') || 'ninguna'}
-Ejercicios completados recientemente: ${doneNames.slice(0,15).join(', ') || 'ninguno'}
-Hábitos activos: ${habitsList || 'ninguno'}
-Tareas pendientes: ${tasksList || 'ninguna'}
+Rutinas: ${routineDetails.join(' | ')||'ninguna'}
+Ejercicios recientes: ${doneNames.slice(0,10).join(', ')||'ninguno'}
+Hábitos: ${habitsList||'ninguno'}
+Tareas: ${tasksList||'ninguna'}
+Responde en español, conciso, máximo 150 palabras. Sin JSON ni formatos especiales.`;
 
-ACCIONES DISPONIBLES: Puedes modificar la app directamente. Si el usuario pide crear/modificar rutinas, ejercicios, hábitos o tareas, incluye al FINAL de tu respuesta un bloque JSON con el formato:
-ACCIONES - usa EXACTAMENTE este formato, una por linea, sin espacios extra:
-Para crear rutina: ACTION_CREATE_ROUTINE|nombre|dias(0=Lun,1=Mar,2=Mie,3=Jue,4=Vie,5=Sab,6=Dom separados por coma)|ejercicio1:series:reps:peso,ejercicio2:series:reps:peso
-Para añadir ejercicios: ACTION_ADD_EXERCISES|nombre_rutina|ejercicio1:series:reps:peso,ejercicio2:series:reps:peso
-Para actualizar ejercicio: ACTION_UPDATE_EXERCISE|nombre_ejercicio|series|reps|peso
-Para cambiar dias rutina: ACTION_UPDATE_DAYS|nombre_rutina|0,1,2
-Para crear habito: ACTION_CREATE_HABIT|nombre|meta|dias(0,1,2...)
-Para crear tarea: ACTION_CREATE_TASK|nombre|fecha(YYYY-MM-DD)
-Solo incluye la linea ACTION si el usuario pide explicitamente crear o modificar algo. Primero responde en texto normal, luego pon la ACTION en linea separada. Responde en español, maximo 150 palabras.`;
-
+    // PASO 1: Respuesta conversacional
     const res = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        max_tokens: 600,
-        system: systemPrompt,
-        messages: aiChatHistory.slice(-12)
-      })
+      body: JSON.stringify({max_tokens:300, system:systemPrompt, messages:aiChatHistory.slice(-10)})
     });
     const data = await res.json();
     let reply = data.content?.[0]?.text || 'No pude generar respuesta.';
 
-    // Execute any actions in the reply
-    const actionMatch = reply.match(/ACTION:(\{.*?\})/gs);
+    // PASO 2: Si el usuario pide una acción, segunda llamada solo para parsear
+    const actionKeywords = ['crea','crear','añade','añadir','agrega','agregar','modifica','modificar','actualiza','actualizar','nueva rutina','nuevo hábito','nueva tarea','ponme','cambia'];
+    const wantsAction = actionKeywords.some(k=>msg.toLowerCase().includes(k));
     let actionResults = '';
-    if(actionMatch){
-      reply = reply.replace(/ACTION:\{.*?\}/gs, '').trim();
-      for(const a of actionMatch){
-        const json = a.replace('ACTION:','').trim();
-        const result = await executeAIAction(json);
-        if(result) actionResults += '\n'+result;
+    if(wantsAction){
+      const actionPrompt = `El usuario pidió: "${msg}"
+Rutinas existentes: ${routineDetails.join(' | ')||'ninguna'}
+Responde ÚNICAMENTE con UNA línea en este formato exacto, sin texto adicional:
+ACTION_CREATE_ROUTINE|nombre|dias(ej:0,2,4)|ej1:series:reps:peso,ej2:series:reps:peso
+ACTION_ADD_EXERCISES|nombre_rutina|ej1:series:reps:peso,ej2:series:reps:peso
+ACTION_UPDATE_EXERCISE|nombre_ejercicio|series|reps|peso
+ACTION_UPDATE_DAYS|nombre_rutina|0,1,2
+ACTION_CREATE_HABIT|nombre|meta|dias
+ACTION_CREATE_TASK|nombre|YYYY-MM-DD
+Dias: 0=Lun 1=Mar 2=Mie 3=Jue 4=Vie 5=Sab 6=Dom
+Si no hay accion clara responde exactamente: NO_ACTION`;
+
+      const res2 = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({max_tokens:80, system:actionPrompt, messages:[{role:'user',content:msg}]})
+      });
+      const data2 = await res2.json();
+      const rawAction = (data2.content?.[0]?.text||'NO_ACTION').trim();
+      const actionLine = rawAction.split('\n').find(l=>l.trim().startsWith('ACTION_'))||'NO_ACTION';
+      if(actionLine !== 'NO_ACTION'){
+        const result = await executeAIAction(actionLine.trim());
+        if(result) actionResults = result;
       }
     }
 
-    const fullReply = reply + (actionResults ? '\n\n'+actionResults : '');
+    const fullReply = reply + (actionResults ? '\n\n' + actionResults : '');
     await saveAIMessage('assistant', fullReply);
     aiChatHistory.push({role:'assistant', content:fullReply});
-
     document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">${fullReply.split('\n').join('<br>')}</div>`;
-
-    // Refresh today if actions were taken
-    if(actionResults){
-      setTimeout(()=>{loadToday();if(document.getElementById('tab-routines').classList.contains('active'))loadRoutines();},500);
-    }
+    if(actionResults){ setTimeout(()=>{loadToday();loadRoutines();},800); }
   } catch(e) {
     document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">Error al conectar con la IA. Intenta de nuevo.</div>`;
   }
