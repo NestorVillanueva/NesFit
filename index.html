@@ -427,7 +427,7 @@ async function doAuth(){
     if(data.error||data.error_description)throw new Error(data.error_description||data.error);
     if(!isLogin&&!data.access_token){showToast('¡Revisa tu email para confirmar la cuenta!');btn.textContent='Registrarse';btn.disabled=false;return;}
     token=data.access_token;userId=data.user?.id;userEmail=data.user?.email||email;
-    localStorage.setItem('fitnes_session',JSON.stringify({token,userId,email:userEmail,saved:true}));
+    localStorage.setItem('fitnes_session',JSON.stringify({token,userId,email:userEmail,refresh_token:data.refresh_token||null,saved:true}));
     initApp();
   }catch(e){errEl.textContent=e.message;errEl.style.display='block';btn.textContent=isLogin?'Entrar':'Registrarse';btn.disabled=false;}
 }
@@ -743,9 +743,45 @@ function closeModals(){document.querySelectorAll('.modal-bg').forEach(m=>m.class
 document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)closeModals();}));
 document.getElementById('mi-name').addEventListener('keydown',e=>{if(e.key==='Enter')saveQuickItem();});
 
-(function(){
+(async function(){
   const s=localStorage.getItem('fitnes_session');
-  if(s){try{const d=JSON.parse(s);if(d.token&&d.userId){token=d.token;userId=d.userId;userEmail=d.email||'';initApp();return;}}catch(e){}}
+  if(!s) return;
+  try{
+    const d=JSON.parse(s);
+    if(!d.email||!d.saved) return;
+    // Try to refresh session using stored refresh token or re-validate
+    if(d.refresh_token){
+      const r=await fetch(SUPA_URL+'/auth/v1/token?grant_type=refresh_token',{
+        method:'POST',
+        headers:{'Content-Type':'application/json','apikey':SUPA_KEY},
+        body:JSON.stringify({refresh_token:d.refresh_token})
+      });
+      const data=await r.json();
+      if(data.access_token){
+        token=data.access_token;
+        userId=data.user?.id;
+        userEmail=data.user?.email||d.email;
+        localStorage.setItem('fitnes_session',JSON.stringify({
+          token,userId,email:userEmail,
+          refresh_token:data.refresh_token||d.refresh_token,
+          saved:true
+        }));
+        initApp();
+        return;
+      }
+    }
+    // Fallback: if token still valid use it
+    if(d.token&&d.userId){
+      token=d.token;userId=d.userId;userEmail=d.email||'';
+      // Verify token is still valid
+      const test=await fetch(SUPA_URL+`/rest/v1/habits?user_id=eq.${userId}&limit=1`,{
+        headers:{'apikey':SUPA_KEY,'Authorization':'Bearer '+token}
+      });
+      if(test.ok){initApp();return;}
+    }
+    // Token expired, clear session
+    localStorage.removeItem('fitnes_session');
+  }catch(e){localStorage.removeItem('fitnes_session');}
 })();
 
 // ========== AI MODULE ==========
