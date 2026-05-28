@@ -428,6 +428,7 @@ async function doAuth(){
     if(!isLogin&&!data.access_token){showToast('¡Revisa tu email para confirmar la cuenta!');btn.textContent='Registrarse';btn.disabled=false;return;}
     token=data.access_token;userId=data.user?.id;userEmail=data.user?.email||email;
     localStorage.setItem('fitnes_session',JSON.stringify({token,userId,email:userEmail,refresh_token:data.refresh_token||null,saved:true}));
+    localStorage.setItem('fitnes_last_email',email);
     initApp();
   }catch(e){errEl.textContent=e.message;errEl.style.display='block';btn.textContent=isLogin?'Entrar':'Registrarse';btn.disabled=false;}
 }
@@ -782,6 +783,12 @@ document.getElementById('mi-name').addEventListener('keydown',e=>{if(e.key==='En
     // Token expired, clear session
     localStorage.removeItem('fitnes_session');
   }catch(e){localStorage.removeItem('fitnes_session');}
+})();
+
+// Pre-fill saved email
+(function(){
+  const saved=localStorage.getItem('fitnes_last_email');
+  if(saved){const el=document.getElementById('auth-email');if(el)el.value=saved;}
 })();
 
 // ========== AI MODULE ==========
