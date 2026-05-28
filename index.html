@@ -146,6 +146,25 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM San
 .btn-cl{background:var(--s2);border:none;border-radius:10px;color:var(--muted);cursor:pointer;font-size:14px;padding:14px 18px}
 .empty{text-align:center;color:var(--muted);font-size:13px;padding:2rem 0}
 .loading{text-align:center;color:var(--muted);font-size:13px;padding:1rem 0}
+.ai-card{background:var(--s1);border-radius:14px;padding:16px;margin-bottom:10px}
+.ai-card-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-weight:500;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.muscle-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.muscle-item{background:var(--s2);border-radius:10px;padding:10px 12px;display:flex;align-items:center;justify-content:space-between}
+.muscle-name{font-size:13px;font-weight:500}
+.muscle-bar-wrap{width:60px;height:5px;background:var(--s3);border-radius:3px;overflow:hidden;margin-top:4px}
+.muscle-bar{height:100%;border-radius:3px}
+.msg-bubble{padding:12px 14px;border-radius:14px;font-size:14px;line-height:1.5;max-width:85%}
+.msg-user{background:var(--accent);color:#0D0D0D;align-self:flex-end;border-bottom-right-radius:4px}
+.msg-ai{background:var(--s1);color:var(--text);align-self:flex-start;border-bottom-left-radius:4px;border:1px solid var(--s3)}
+.msg-ai.loading{color:var(--muted)}
+.suggestion-chip{background:var(--s2);border:1px solid var(--s3);border-radius:20px;color:var(--muted);cursor:pointer;font-size:12px;padding:6px 12px;transition:all .15s;white-space:nowrap}
+.suggestion-chip:hover{border-color:var(--accent);color:var(--accent)}
+.rec-card{background:var(--s2);border-radius:12px;padding:12px 14px;margin-bottom:8px;border-left:3px solid var(--accent)}
+.rec-title{font-size:14px;font-weight:500;margin-bottom:4px}
+.rec-desc{font-size:12px;color:var(--muted);line-height:1.4}
+.stat-accent{color:var(--accent)}
+.stat-warn{color:var(--orange)}
+.stat-red{color:var(--red)}
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--accent);color:#0D0D0D;font-size:13px;font-weight:500;padding:10px 20px;border-radius:30px;z-index:999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
 .toast.show{opacity:1}
 </style>
@@ -221,6 +240,19 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM San
       <div id="routines-list"><div class="loading">Cargando...</div></div>
     </div>
 
+    <div class="tab-page" id="tab-ai">
+      <div id="ai-dashboard"></div>
+      <div class="section-row" style="margin-top:.5rem">
+        <span class="section-label">Asistente FitNes IA</span>
+      </div>
+      <div id="ai-chat-messages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:10px;min-height:120px"></div>
+      <div style="display:flex;gap:8px;margin-bottom:1rem">
+        <input type="text" id="ai-input" class="inp" placeholder="Pregúntame sobre tu entrenamiento..." style="flex:1;padding:12px 14px"/>
+        <button onclick="sendAIMessage()" style="background:var(--accent);border:none;border-radius:10px;color:#0D0D0D;cursor:pointer;padding:12px 16px;font-size:20px;flex-shrink:0"><i class="ti ti-send"></i></button>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem" id="ai-suggestions"></div>
+    </div>
+
     <div class="tab-page" id="tab-history">
       <div class="stats-grid">
         <div class="stat-box"><div class="stat-n" id="st-days">0</div><div class="stat-l">Días</div></div>
@@ -240,6 +272,9 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM San
     </button>
     <button class="nav-item" onclick="switchTab('history',this)">
       <i class="ti ti-chart-bar"></i><span>Historial</span>
+    </button>
+    <button class="nav-item" onclick="switchTab('ai',this)">
+      <i class="ti ti-brain"></i><span>IA</span>
     </button>
   </nav>
 </div>
@@ -416,11 +451,12 @@ function switchTab(name,el){
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   document.getElementById('tab-'+name).classList.add('active');
   if(el)el.classList.add('active');
-  const titles={today:'FitNes',routines:'Rutinas',history:'Historial'};
+  const titles={today:'FitNes',routines:'Rutinas',history:'Historial',ai:'IA Coach'};
   document.getElementById('topbar-title').textContent=titles[name];
   if(name==='routines')loadRoutines();
   if(name==='history')loadHistory();
   if(name==='today')loadToday();
+  if(name==='ai'){loadAIDashboard();}
 }
 
 async function loadToday(){
@@ -711,6 +747,234 @@ document.getElementById('mi-name').addEventListener('keydown',e=>{if(e.key==='En
   const s=localStorage.getItem('fitnes_session');
   if(s){try{const d=JSON.parse(s);if(d.token&&d.userId){token=d.token;userId=d.userId;userEmail=d.email||'';initApp();return;}}catch(e){}}
 })();
+
+// ========== AI MODULE ==========
+const USER_PROFILE = {
+  name: 'Nestor',
+  goal: 'Perder grasa y ganar músculo aplicado al baloncesto. Mejorar atletismo: salto vertical, reacción y aceleración.',
+  level: 'Avanzado (más de 3 años de experiencia)',
+  sport: 'Baloncesto'
+};
+
+const MUSCLE_GROUPS = {
+  'pecho': {color:'#FF6B35',keywords:['press','pectoral','pecho','aperturas','fondos']},
+  'espalda': {color:'#4ECDC4',keywords:['remo','jalón','dominadas','espalda','pull','peso muerto']},
+  'piernas': {color:'#C8F135',keywords:['sentadilla','squat','prensa','femoral','cuádricep','pierna','lunges','zancada','hip thrust','glúteo']},
+  'hombros': {color:'#FF4757',keywords:['press militar','lateral','hombro','deltoides','elevaciones']},
+  'bíceps': {color:'#A8D020',keywords:['curl','bícep','martillo']},
+  'tríceps': {color:'#FFB930',keywords:['trícep','extensión','press francés','fondos']},
+  'core': {color:'#7B68EE',keywords:['abdomen','plancha','crunch','core','oblicuo','sit-up']},
+  'explosividad': {color:'#FF1744',keywords:['salto','box jump','sprint','velocidad','agilidad','cargada','arrancada','pliométrico']}
+};
+
+let aiChatHistory = [];
+let aiLoading = false;
+
+async function loadAIDashboard() {
+  const dashEl = document.getElementById('ai-dashboard');
+  dashEl.innerHTML = '<div class="loading">Analizando tu entrenamiento...</div>';
+  try {
+    const [logs, exercises, tasks] = await Promise.all([
+      api('GET', `/rest/v1/daily_logs?user_id=eq.${userId}&select=*&order=date.desc&limit=50`),
+      api('GET', `/rest/v1/exercises?user_id=eq.${userId}&select=*`),
+      api('GET', `/rest/v1/tasks?user_id=eq.${userId}&select=*&order=date.desc&limit=20`)
+    ]);
+
+    const doneExIds = logs.filter(l => l.done && l.exercise_id).map(l => l.exercise_id);
+    const doneExercises = exercises.filter(e => doneExIds.includes(e.id));
+    const muscleCount = {};
+    Object.keys(MUSCLE_GROUPS).forEach(m => muscleCount[m] = 0);
+    doneExercises.forEach(e => {
+      const name = (e.name || '').toLowerCase();
+      Object.entries(MUSCLE_GROUPS).forEach(([group, data]) => {
+        if (data.keywords.some(k => name.includes(k))) muscleCount[group]++;
+      });
+    });
+
+    const totalEx = doneExercises.length;
+    const doneTasks = tasks.filter(t => t.done).length;
+    const totalDays = [...new Set(logs.map(l => l.date))].length;
+    const maxMuscle = Math.max(...Object.values(muscleCount), 1);
+    const sorted = Object.entries(muscleCount).sort((a,b) => b[1]-a[1]);
+    const weakGroups = sorted.filter(([,v]) => v === 0).map(([k]) => k);
+    const strongGroups = sorted.filter(([,v]) => v > 0).slice(0,3).map(([k]) => k);
+
+    dashEl.innerHTML = `
+      <div class="ai-card" style="background:linear-gradient(135deg,rgba(200,241,53,.08),rgba(255,107,53,.06));border:1px solid rgba(200,241,53,.2)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div style="width:40px;height:40px;border-radius:12px;background:var(--accent);display:flex;align-items:center;justify-content:center;font-size:20px">🏀</div>
+          <div>
+            <div style="font-size:15px;font-weight:500">Hola ${USER_PROFILE.name}</div>
+            <div style="font-size:12px;color:var(--muted)">Objetivo: baloncesto y atletismo</div>
+          </div>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+          <div style="text-align:center;background:var(--s2);border-radius:10px;padding:10px">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--accent)">${totalDays}</div>
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Días</div>
+          </div>
+          <div style="text-align:center;background:var(--s2);border-radius:10px;padding:10px">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--orange)">${totalEx}</div>
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Ejercicios</div>
+          </div>
+          <div style="text-align:center;background:var(--s2);border-radius:10px;padding:10px">
+            <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--blue)">${doneTasks}</div>
+            <div style="font-size:10px;color:var(--muted);text-transform:uppercase">Tareas</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="ai-card">
+        <div class="ai-card-title"><i class="ti ti-chart-radar"></i> Grupos musculares esta semana</div>
+        <div class="muscle-grid">
+          ${sorted.map(([group, count]) => `
+            <div class="muscle-item">
+              <div>
+                <div class="muscle-name">${group.charAt(0).toUpperCase()+group.slice(1)}</div>
+                <div class="muscle-bar-wrap"><div class="muscle-bar" style="width:${Math.round(count/maxMuscle*100)}%;background:${MUSCLE_GROUPS[group].color}"></div></div>
+              </div>
+              <div style="font-size:12px;color:${count===0?'var(--red)':count>=2?'var(--accent)':'var(--muted)'}">${count===0?'⚠️':count+'x'}</div>
+            </div>`).join('')}
+        </div>
+      </div>
+
+      ${weakGroups.length > 0 ? `
+      <div class="ai-card" style="border:1px solid rgba(255,71,87,.2)">
+        <div class="ai-card-title" style="color:var(--red)"><i class="ti ti-alert-triangle"></i> Grupos sin trabajar</div>
+        ${weakGroups.map(g => `
+          <div class="rec-card" style="border-left-color:var(--red)">
+            <div class="rec-title">${g.charAt(0).toUpperCase()+g.slice(1)} — Sin actividad</div>
+            <div class="rec-desc">${getWeakGroupTip(g)}</div>
+          </div>`).join('')}
+      </div>` : ''}
+
+      <div class="ai-card">
+        <div class="ai-card-title"><i class="ti ti-bolt"></i> Recomendación para hoy</div>
+        <div id="ai-today-rec"><div class="loading">Generando...</div></div>
+      </div>
+    `;
+
+    generateTodayRec(strongGroups, weakGroups, totalDays);
+    renderAISuggestions();
+  } catch(e) {
+    dashEl.innerHTML = '<div class="empty">Error cargando dashboard</div>';
+  }
+}
+
+function getWeakGroupTip(group) {
+  const tips = {
+    'piernas': 'Crítico para el baloncesto. Trabaja sentadillas, hip thrust y saltos pliométricos.',
+    'explosividad': 'Esencial para saltar más y acelerar. Añade box jumps, sprints y cargadas.',
+    'core': 'Base de todo movimiento atlético. Plancha, dead bug y rotaciones.',
+    'espalda': 'Crucial para la postura y potencia. Remos y jalones.',
+    'hombros': 'Importante para el tiro. Press militar y elevaciones laterales.',
+    'pecho': 'Añade press de banca o fondos para equilibrar.',
+    'bíceps': 'Trabaja curls para completar el tren superior.',
+    'tríceps': 'Fondos y extensiones para el tren superior completo.'
+  };
+  return tips[group] || 'Incluye ejercicios de este grupo en tu próxima sesión.';
+}
+
+async function generateTodayRec(strong, weak, totalDays) {
+  const el = document.getElementById('ai-today-rec');
+  if (!el) return;
+  try {
+    const prompt = `Eres un entrenador personal experto en baloncesto y atletismo. 
+Usuario: ${USER_PROFILE.name}, nivel avanzado, objetivo: ${USER_PROFILE.goal}.
+Grupos musculares más trabajados: ${strong.join(', ') || 'ninguno aún'}.
+Grupos sin trabajar: ${weak.join(', ') || 'ninguno, buen balance'}.
+Días entrenados en total: ${totalDays}.
+Da una recomendación MUY CONCISA (máximo 3 líneas) de qué debería entrenar HOY específicamente para su objetivo de baloncesto. Sé directo, sin saludos.`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 200,
+        messages: [{role: 'user', content: prompt}]
+      })
+    });
+    const data = await res.json();
+    const text = data.content?.[0]?.text || 'No se pudo generar recomendación.';
+    el.innerHTML = `<div style="font-size:14px;line-height:1.6;color:var(--text)">${text.replace(/
+/g,'<br>')}</div>`;
+  } catch(e) {
+    el.innerHTML = '<div style="font-size:13px;color:var(--muted)">Enfócate hoy en piernas y explosividad para mejorar tu salto.</div>';
+  }
+}
+
+function renderAISuggestions() {
+  const chips = [
+    '¿Qué debo entrenar esta semana?',
+    'Ejercicios para saltar más',
+    'Plan para ganar músculo y definir',
+    '¿Cómo mejorar mi aceleración?',
+    'Analiza mi progreso',
+    'Rutina de baloncesto'
+  ];
+  document.getElementById('ai-suggestions').innerHTML = chips.map(c =>
+    `<button class="suggestion-chip" onclick="sendAIMessage('${c}')">${c}</button>`
+  ).join('');
+}
+
+async function sendAIMessage(preset) {
+  if (aiLoading) return;
+  const input = document.getElementById('ai-input');
+  const msg = preset || input.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  const chatEl = document.getElementById('ai-chat-messages');
+  chatEl.innerHTML += `<div class="msg-bubble msg-user">${msg}</div>`;
+  chatEl.innerHTML += `<div class="msg-bubble msg-ai loading" id="ai-thinking">Pensando...</div>`;
+  chatEl.scrollTop = chatEl.scrollHeight;
+  aiLoading = true;
+
+  try {
+    const [logs, exercises, routines] = await Promise.all([
+      api('GET', `/rest/v1/daily_logs?user_id=eq.${userId}&select=*&order=date.desc&limit=30`),
+      api('GET', `/rest/v1/exercises?user_id=eq.${userId}&select=*`),
+      api('GET', `/rest/v1/routines?user_id=eq.${userId}&select=*,exercises(*)`)
+    ]);
+    const doneExIds = logs.filter(l => l.done && l.exercise_id).map(l => l.exercise_id);
+    const doneNames = exercises.filter(e => doneExIds.includes(e.id)).map(e => e.name);
+    const routineNames = routines.map(r => `${r.name} (${(r.days||[]).map(d=>['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][d]).join(',')})`);
+    const totalDays = [...new Set(logs.map(l => l.date))].length;
+
+    aiChatHistory.push({role: 'user', content: msg});
+
+    const systemPrompt = `Eres el asistente de entrenamiento personal de ${USER_PROFILE.name} dentro de su app FitNes.
+Perfil: ${USER_PROFILE.level}, objetivo: ${USER_PROFILE.goal}.
+Días entrenados: ${totalDays}.
+Rutinas actuales: ${routineNames.join('; ') || 'ninguna aún'}.
+Ejercicios completados recientemente: ${doneNames.slice(0,15).join(', ') || 'ninguno aún'}.
+Responde siempre en español, de forma concisa y práctica. Usa emojis con moderación. Máximo 150 palabras por respuesta.`;
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        system: systemPrompt,
+        messages: aiChatHistory.slice(-6)
+      })
+    });
+    const data = await res.json();
+    const reply = data.content?.[0]?.text || 'No pude generar respuesta.';
+    aiChatHistory.push({role: 'assistant', content: reply});
+
+    document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">${reply.replace(/
+/g,'<br>')}</div>`;
+  } catch(e) {
+    document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">Error al conectar con la IA. Intenta de nuevo.</div>`;
+  }
+  aiLoading = false;
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+// ========== END AI MODULE ==========
+
 </script>
 </body>
 </html>
