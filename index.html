@@ -374,25 +374,47 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
       <input type="text" id="mi-name" placeholder="Ej: Press banca, Agua 2L..."/>
     </div>
     <div class="form-row" id="mi-gym-fields" style="display:none">
-      <label class="form-label">Series</label>
-      <input type="number" id="mi-sets" class="inp" placeholder="4" min="1" style="margin-bottom:8px"/>
-      <label class="form-label">Reps / Tiempo</label>
-      <div style="display:flex;gap:6px;margin-bottom:8px">
-        <input type="text" id="mi-reps" class="inp" placeholder="10 reps o 30s" style="flex:1"/>
-        <select id="mi-rep-type" class="inp" style="width:120px">
-          <option value="reps">Reps</option>
-          <option value="tiempo">Tiempo</option>
-          <option value="unilateral">Unilateral</option>
-        </select>
+      <label class="form-label">Tipo de ejercicio</label>
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button class="day-btn sel ex-type-btn" data-type="fuerza" onclick="switchExType('fuerza')">💪 Fuerza</button>
+        <button class="day-btn ex-type-btn" data-type="cardio" onclick="switchExType('cardio')">🏃 Cardio</button>
       </div>
-      <label class="form-label">Peso</label>
-      <div style="display:flex;gap:6px">
-        <input type="text" id="mi-weight" class="inp" placeholder="60kg" style="flex:1"/>
-        <select id="mi-weight-type" class="inp" style="width:140px">
-          <option value="kg">Peso (kg)</option>
-          <option value="corporal">Peso corporal</option>
-          <option value="banda">Banda elástica</option>
-        </select>
+      <input type="hidden" id="mi-ex-type" value="fuerza"/>
+      <div id="mi-fuerza-fields">
+        <label class="form-label">Series</label>
+        <input type="number" id="mi-sets" class="inp" placeholder="4" min="1" style="margin-bottom:8px"/>
+        <label class="form-label">Reps / Tiempo</label>
+        <div style="display:flex;gap:6px;margin-bottom:8px">
+          <input type="text" id="mi-reps" class="inp" placeholder="10 reps o 30s" style="flex:1"/>
+          <select id="mi-rep-type" class="inp" style="width:120px">
+            <option value="reps">Reps</option>
+            <option value="tiempo">Tiempo</option>
+            <option value="unilateral">Unilateral</option>
+          </select>
+        </div>
+        <label class="form-label">Peso</label>
+        <div style="display:flex;gap:6px">
+          <input type="text" id="mi-weight" class="inp" placeholder="60kg" style="flex:1"/>
+          <select id="mi-weight-type" class="inp" style="width:140px">
+            <option value="kg">Peso (kg)</option>
+            <option value="corporal">Peso corporal</option>
+            <option value="banda">Banda elástica</option>
+          </select>
+        </div>
+      </div>
+      <div id="mi-cardio-fields" style="display:none">
+        <label class="form-label">Duración</label>
+        <input type="text" id="mi-cardio-time" class="inp" placeholder="30 min, 1h 15min..." style="margin-bottom:8px"/>
+        <label class="form-label">Distancia (opcional)</label>
+        <input type="text" id="mi-cardio-dist" class="inp" placeholder="5 km, 1500m..." style="margin-bottom:8px"/>
+        <label class="form-label">Kcal quemadas (opcional)</label>
+        <input type="number" id="mi-cardio-kcal" class="inp" placeholder="350" style="margin-bottom:8px"/>
+        <label class="form-label">Ritmo / Pace (opcional)</label>
+        <input type="text" id="mi-cardio-pace" class="inp" placeholder="5:30 min/km"/>
+      </div>
+      <div style="margin-top:10px">
+        <label class="form-label">Comentarios / Sensaciones</label>
+        <textarea id="mi-comments" class="inp" rows="2" placeholder="¿Cómo te has sentido? Notas sobre la sesión..."></textarea>
       </div>
     </div>
     <div class="form-row" id="mi-habit-fields" style="display:none">
@@ -645,7 +667,7 @@ function renderSection(cid,items,cat,today){
       </div>
       <div class="item-body">
         <div class="item-name">${item.name}</div>
-        ${item.sets?`<div class="item-meta">${item.sets} × ${item.reps||'?'}${item.weight?' · '+item.weight:''}</div>`:item.goal?`<div class="item-meta">${item.goal}</div>`:''}
+        ${item.sets?`<div class="item-meta">${item.sets} × ${item.reps||'?'}${item.weight?' · '+item.weight:''}</div>`:item.weight?`<div class="item-meta">${item.weight}</div>`:item.goal?`<div class="item-meta">${item.goal}</div>`:''}
       </div>
       <span class="tag tag-${cat}">${cat==='gym'?'Gym':cat==='habit'?'Hábito':'Tarea'}</span>
       ${cat==='task'?`<button class="item-del" onclick="event.stopPropagation();delTask('${item.id}')"><i class="ti ti-x"></i></button>`:''}
@@ -688,6 +710,14 @@ async function delTask(id){
   catch(e){showToast('Error');}
 }
 
+
+function switchExType(type){
+  document.getElementById('mi-ex-type').value=type;
+  document.querySelectorAll('.ex-type-btn').forEach(b=>b.classList.toggle('sel',b.dataset.type===type));
+  document.getElementById('mi-fuerza-fields').style.display=type==='fuerza'?'block':'none';
+  document.getElementById('mi-cardio-fields').style.display=type==='cardio'?'block':'none';
+}
+
 function openQuickAdd(cat){
   const titles={gym:'Añadir ejercicio',habit:'Nuevo hábito',task:'Nueva tarea'};
   document.getElementById('modal-item-title').textContent=titles[cat];
@@ -709,6 +739,12 @@ function openQuickAdd(cat){
     document.getElementById('mi-weight').value='';
     document.getElementById('mi-rep-type').value='reps';
     document.getElementById('mi-weight-type').value='kg';
+    document.getElementById('mi-cardio-time').value='';
+    document.getElementById('mi-cardio-dist').value='';
+    document.getElementById('mi-cardio-kcal').value='';
+    document.getElementById('mi-cardio-pace').value='';
+    document.getElementById('mi-comments').value='';
+    switchExType('fuerza');
   } else if(cat==='habit'){
     habitFields.style.display='block';
     otherFields.style.display='block';
@@ -737,21 +773,41 @@ async function saveQuickItem(){
       const habitDays=Array.from(document.querySelectorAll('.habit-day-btn.sel')).map(b=>b.dataset.day);
       await api('POST','/rest/v1/habits',{user_id:userId,name,goal:detail,active:true,notify_time:habitDays.join(',')});
     } else {
-      const sets=parseInt(document.getElementById('mi-sets').value)||null;
-      const repsVal=document.getElementById('mi-reps').value.trim();
-      const repType=document.getElementById('mi-rep-type').value;
-      const weightVal=document.getElementById('mi-weight').value.trim();
-      const weightType=document.getElementById('mi-weight-type').value;
-      let repsText=repsVal;
-      if(repType==='tiempo')repsText=repsVal+(repsVal.includes('s')||repsVal.includes('min')?'':' seg');
-      if(repType==='unilateral')repsText=repsVal+' c/lado';
-      let weightText=weightVal;
-      if(weightType==='corporal')weightText='Peso corporal';
-      if(weightType==='banda')weightText='Banda elástica';
-      const exData={user_id:userId,routine_id:null,name,sets:sets,reps:parseInt(repsVal)||null,weight:weightText||null,order_index:0};
+      const exType=document.getElementById('mi-ex-type').value;
+      const comments=document.getElementById('mi-comments').value.trim();
+      let exData,notesText='';
+      if(exType==='cardio'){
+        const dur=document.getElementById('mi-cardio-time').value.trim();
+        const dist=document.getElementById('mi-cardio-dist').value.trim();
+        const kcal=document.getElementById('mi-cardio-kcal').value.trim();
+        const pace=document.getElementById('mi-cardio-pace').value.trim();
+        let weightInfo=[];
+        if(dur)weightInfo.push(dur);
+        if(dist)weightInfo.push(dist);
+        if(pace)weightInfo.push(pace+'/km');
+        if(kcal)weightInfo.push(kcal+' kcal');
+        exData={user_id:userId,routine_id:null,name,sets:null,reps:null,weight:weightInfo.join(' · ')||null,order_index:0};
+        notesText='cardio';
+        if(comments)notesText+=' | '+comments;
+      } else {
+        const sets=parseInt(document.getElementById('mi-sets').value)||null;
+        const repsVal=document.getElementById('mi-reps').value.trim();
+        const repType=document.getElementById('mi-rep-type').value;
+        const weightVal=document.getElementById('mi-weight').value.trim();
+        const weightType=document.getElementById('mi-weight-type').value;
+        let repsText=repsVal;
+        if(repType==='tiempo')repsText=repsVal+(repsVal.includes('s')||repsVal.includes('min')?'':' seg');
+        if(repType==='unilateral')repsText=repsVal+' c/lado';
+        let weightText=weightVal;
+        if(weightType==='corporal')weightText='Peso corporal';
+        if(weightType==='banda')weightText='Banda elástica';
+        exData={user_id:userId,routine_id:null,name,sets:sets,reps:parseInt(repsVal)||null,weight:weightText||null,order_index:0};
+        notesText=(repType!=='reps'?repType+': ':'')+repsText;
+        if(comments)notesText+=(notesText?' | ':'')+comments;
+      }
       const ex=await api('POST','/rest/v1/exercises',exData);
       if(ex&&ex[0]){
-        await api('POST','/rest/v1/daily_logs',{user_id:userId,date:todayStr(),exercise_id:ex[0].id,done:false,notes:(repType!=='reps'?repType+': ':'')+repsText});
+        await api('POST','/rest/v1/daily_logs',{user_id:userId,date:viewingDateStr(),exercise_id:ex[0].id,done:false,notes:notesText||null});
       }
     }
     closeModals();loadToday();showToast('Añadido ✓');
