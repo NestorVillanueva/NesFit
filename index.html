@@ -187,7 +187,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM San
       <div class="toggle on" id="tog-remember" onclick="this.classList.toggle('on')" style="flex-shrink:0"></div>
       <span style="font-size:14px;color:var(--muted)">Mantener sesión iniciada</span>
     </label>
-    <button class="btn btn-primary" id="auth-submit-btn">Entrar</button>
+    <button class="btn btn-primary" id="auth-btn" onclick="doAuth()">Entrar</button>
     
   </div>
 </div>
@@ -744,7 +744,7 @@ function closeModals(){document.querySelectorAll('.modal-bg').forEach(m=>m.class
 
 window.onload = async function(){
   // Event listeners
-  document.getElementById('auth-submit-btn').addEventListener('click', doAuth);
+  
   document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)closeModals();}));
   document.getElementById('mi-name').addEventListener('keydown',e=>{if(e.key==='Enter')saveQuickItem();});
   document.getElementById('days-select').addEventListener('click',e=>{const b=e.target.closest('.day-btn');if(b)b.classList.toggle('sel');});
