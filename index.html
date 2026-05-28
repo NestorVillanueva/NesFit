@@ -646,9 +646,7 @@ async function saveRoutine(){
   }catch(e){showToast('Error: '+e.message);}
 }
 
-document.getElementById('days-select').addEventListener('click',e=>{
-  const b=e.target.closest('.day-btn');if(b)b.classList.toggle('sel');
-});
+
 
 async function loadHistory(){
   try{
@@ -741,10 +739,18 @@ function scheduleNotifications(){
 }
 
 function closeModals(){document.querySelectorAll('.modal-bg').forEach(m=>m.classList.remove('open'));}
-document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)closeModals();}));
-document.getElementById('mi-name').addEventListener('keydown',e=>{if(e.key==='Enter')saveQuickItem();});
 
-(async function(){
+
+window.onload = async function(){
+  // Event listeners
+  document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)closeModals();}));
+  document.getElementById('mi-name').addEventListener('keydown',e=>{if(e.key==='Enter')saveQuickItem();});
+  document.getElementById('days-select').addEventListener('click',e=>{const b=e.target.closest('.day-btn');if(b)b.classList.toggle('sel');});
+
+  // Pre-fill saved email
+  const savedEmail=localStorage.getItem('fitnes_last_email');
+  if(savedEmail){const el=document.getElementById('auth-email');if(el)el.value=savedEmail;}
+
   const s=localStorage.getItem('fitnes_session');
   if(!s) return;
   try{
@@ -783,13 +789,7 @@ document.getElementById('mi-name').addEventListener('keydown',e=>{if(e.key==='En
     // Token expired, clear session
     localStorage.removeItem('fitnes_session');
   }catch(e){localStorage.removeItem('fitnes_session');}
-})();
-
-// Pre-fill saved email
-(function(){
-  const saved=localStorage.getItem('fitnes_last_email');
-  if(saved){const el=document.getElementById('auth-email');if(el)el.value=saved;}
-})();
+};
 
 // ========== AI MODULE ==========
 const USER_PROFILE = {
