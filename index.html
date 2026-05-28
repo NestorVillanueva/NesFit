@@ -181,12 +181,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM San
     <h3 id="auth-mode-title" style="font-size:1.1rem;line-height:1.4">Hola Nestor 👋<br><span style="color:var(--muted);font-family:'DM Sans',sans-serif;font-size:0.85rem;font-weight:400;letter-spacing:0">Bienvenido de nuevo</span></h3>
     <p class="err-msg" id="err-msg"></p>
     <input class="inp" id="auth-email" type="email" placeholder="Email" autocomplete="email"/>
-    <input class="inp" id="auth-pass" type="password" placeholder="Contraseña" autocomplete="current-password"/>
+    <input class="inp" id="auth-pass" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAuth()"/>
     <label style="display:flex;align-items:center;gap:10px;cursor:pointer;padding:4px 0">
       <div class="toggle on" id="tog-remember" onclick="this.classList.toggle('on')" style="flex-shrink:0"></div>
       <span style="font-size:14px;color:var(--muted)">Mantener sesión iniciada</span>
     </label>
-    <button class="btn btn-primary" id="auth-btn" onclick="doAuth()">Entrar</button>
+    <button class="btn btn-primary" id="auth-submit-btn">Entrar</button>
     
   </div>
 </div>
@@ -743,6 +743,7 @@ function closeModals(){document.querySelectorAll('.modal-bg').forEach(m=>m.class
 
 window.onload = async function(){
   // Event listeners
+  document.getElementById('auth-submit-btn').addEventListener('click', doAuth);
   document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',function(e){if(e.target===this)closeModals();}));
   document.getElementById('mi-name').addEventListener('keydown',e=>{if(e.key==='Enter')saveQuickItem();});
   document.getElementById('days-select').addEventListener('click',e=>{const b=e.target.closest('.day-btn');if(b)b.classList.toggle('sel');});
