@@ -942,7 +942,7 @@ Da una recomendación MUY CONCISA (máximo 3 líneas) de qué debería entrenar 
     });
     const data = await res.json();
     const text = data.content?.[0]?.text || 'No se pudo generar recomendación.';
-    el.innerHTML = `<div style="font-size:14px;line-height:1.6;color:var(--text)">${text.replace(/\n/g,'<br>')}</div>`;
+    el.innerHTML = `<div style="font-size:14px;line-height:1.6;color:var(--text)">${text.split('\n').join('<br>')}</div>`;
   } catch(e) {
     el.innerHTML = '<div style="font-size:13px;color:var(--muted)">Enfócate hoy en piernas y explosividad para mejorar tu salto.</div>';
   }
@@ -1009,7 +1009,7 @@ Responde siempre en español, de forma concisa y práctica. Usa emojis con moder
     const reply = data.content?.[0]?.text || 'No pude generar respuesta.';
     aiChatHistory.push({role: 'assistant', content: reply});
 
-    document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">${reply.replace(/\n/g,'<br>')}</div>`;
+    document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">${reply.split('\n').join('<br>')}</div>`;
   } catch(e) {
     document.getElementById('ai-thinking').outerHTML = `<div class="msg-bubble msg-ai">Error al conectar con la IA. Intenta de nuevo.</div>`;
   }
