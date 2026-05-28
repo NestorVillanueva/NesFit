@@ -293,26 +293,31 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
     </div>
 
     <div class="tab-page" id="tab-ai">
-      <div id="ai-dashboard"></div>
-      <div class="section-row" style="margin-top:.5rem">
-        <span class="section-label">Asistente IA</span>
-        <button onclick="clearAIMemory()" style="background:transparent;border:1px solid var(--s3);border-radius:8px;color:var(--muted);cursor:pointer;font-size:11px;padding:4px 10px;font-family:Archivo,sans-serif">🗑 Limpiar</button>
-      </div>
-      <div id="ai-chat-messages" style="display:flex;flex-direction:column;gap:10px;margin-bottom:10px;min-height:100px"></div>
-      <div style="display:flex;gap:8px;margin-bottom:8px">
-        <input type="text" id="ai-input" class="inp" placeholder="Pregúntame o pega tu entrenamiento..." style="flex:1"/>
-        <button onclick="sendAIMessage()" style="background:var(--accent);border:none;border-radius:10px;color:#060608;cursor:pointer;padding:12px 14px;font-size:18px;flex-shrink:0"><i class="ti ti-send"></i></button>
-      </div>
-      <div style="display:flex;gap:6px;margin-bottom:1rem">
-        <button onclick="openTextImport()" style="flex:1;background:var(--s2);border:1px solid var(--s3);border-radius:9px;color:var(--muted);cursor:pointer;font-family:Archivo,sans-serif;font-size:12px;padding:8px;display:flex;align-items:center;justify-content:center;gap:6px">
-          <i class="ti ti-clipboard-text"></i> Pegar entrenamiento
-        </button>
-        <button onclick="openImageImport()" style="flex:1;background:var(--s2);border:1px solid var(--s3);border-radius:9px;color:var(--muted);cursor:pointer;font-family:Archivo,sans-serif;font-size:12px;padding:8px;display:flex;align-items:center;justify-content:center;gap:6px">
-          <i class="ti ti-photo-scan"></i> Subir imagen
-        </button>
+      <!-- INPUT AT TOP -->
+      <div style="position:sticky;top:0;background:var(--bg);padding:0.75rem 0 0.5rem;z-index:10">
+        <div style="display:flex;gap:8px;margin-bottom:8px">
+          <input type="text" id="ai-input" class="inp" placeholder="Pregúntame o pega tu entrenamiento..." style="flex:1"/>
+          <button onclick="sendAIMessage()" style="background:var(--accent);border:none;border-radius:10px;color:#060608;cursor:pointer;padding:12px 14px;font-size:18px;flex-shrink:0"><i class="ti ti-send"></i></button>
+        </div>
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <button onclick="openTextImport()" style="flex:1;background:var(--s2);border:1px solid var(--s3);border-radius:9px;color:var(--muted);cursor:pointer;font-family:Archivo,sans-serif;font-size:11px;padding:7px;display:flex;align-items:center;justify-content:center;gap:5px">
+            <i class="ti ti-clipboard-text"></i> Pegar entrenamiento
+          </button>
+          <button onclick="openImageImport()" style="flex:1;background:var(--s2);border:1px solid var(--s3);border-radius:9px;color:var(--muted);cursor:pointer;font-family:Archivo,sans-serif;font-size:11px;padding:7px;display:flex;align-items:center;justify-content:center;gap:5px">
+            <i class="ti ti-photo-scan"></i> Subir imagen
+          </button>
+          <button onclick="clearAIMemory()" style="background:var(--s2);border:1px solid var(--s3);border-radius:9px;color:var(--muted);cursor:pointer;font-size:14px;padding:7px 10px">🗑</button>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:5px;margin-bottom:4px" id="ai-suggestions"></div>
+        <div style="height:1px;background:var(--s2);margin-top:4px"></div>
       </div>
       <input type="file" id="ai-image-input" accept="image/*" style="display:none" onchange="handleImageUpload(event)"/>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:1rem" id="ai-suggestions"></div>
+      <!-- MESSAGES BELOW -->
+      <div id="ai-chat-messages" style="display:flex;flex-direction:column;gap:10px;padding:10px 0;min-height:100px"></div>
+      <!-- DASHBOARD AT BOTTOM -->
+      <div style="border-top:1px solid var(--s2);margin-top:8px;padding-top:8px">
+        <div id="ai-dashboard"></div>
+      </div>
     </div>
 
     <div class="tab-page" id="tab-profile">
@@ -1112,8 +1117,10 @@ let aiLoading = false;
 
 async function loadAIDashboard() {
   const dashEl = document.getElementById('ai-dashboard');
-  dashEl.innerHTML = '<div class="loading">Analizando tu entrenamiento...</div>';
+  dashEl.innerHTML = '<div class="loading">Analizando...</div>';
   await loadAIMemory();
+  // Scroll to top so input is visible
+  document.querySelector('.scroll-area').scrollTop = 0;
   try {
     const [logs, exercises, tasks] = await Promise.all([
       api('GET', `/rest/v1/daily_logs?user_id=eq.${userId}&select=*&order=date.desc&limit=50`),
