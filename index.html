@@ -1427,9 +1427,14 @@ Si no hay accion clara responde exactamente: NO_ACTION`;
       });
       const data2 = await res2.json();
       const rawAction = (data2.content?.[0]?.text||'NO_ACTION').trim();
-      const actionLine = rawAction.split('\n').find(l=>l.trim().startsWith('ACTION_'))||'NO_ACTION';
+      console.log('AI action raw:', rawAction);
+      // Look for ACTION_ line anywhere in response
+      const allLines = rawAction.split('\n').map(l=>l.trim());
+      const actionLine = allLines.find(l=>l.startsWith('ACTION_'))||'NO_ACTION';
+      console.log('Action line found:', actionLine);
       if(actionLine !== 'NO_ACTION'){
-        const result = await executeAIAction(actionLine.trim());
+        const result = await executeAIAction(actionLine);
+        console.log('Action result:', result);
         if(result) actionResults = result;
       }
     }
