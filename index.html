@@ -334,6 +334,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
           <label class="form-label">Tu nombre</label>
           <input type="text" id="p-name" class="inp" placeholder="Ej: Nestor"/>
         </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="form-row">
+            <label class="form-label">Peso</label>
+            <input type="text" id="p-weight" class="inp" placeholder="Ej: 75 kg"/>
+          </div>
+          <div class="form-row">
+            <label class="form-label">Altura</label>
+            <input type="text" id="p-height" class="inp" placeholder="Ej: 183 cm"/>
+          </div>
+        </div>
         <div class="form-row">
           <label class="form-label">Deporte o actividad principal</label>
           <input type="text" id="p-sport" class="inp" placeholder="Ej: Baloncesto, Fútbol, Fitness..."/>
@@ -341,6 +351,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
         <div class="form-row">
           <label class="form-label">Tu objetivo principal</label>
           <textarea id="p-goal" class="inp" rows="3" placeholder="Ej: Ganar músculo y mejorar mi salto..."></textarea>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Lesiones o limitaciones</label>
+          <input type="text" id="p-injuries" class="inp" placeholder="Ej: Rodilla derecha, lumbar... (opcional)"/>
         </div>
       </div>
       <button class="btn btn-primary" style="border-radius:12px;margin-bottom:1rem" onclick="saveProfile()">
@@ -1185,13 +1199,13 @@ let _cachedProfile=null;
 function getUserProfile(){
   if(_cachedProfile) return _cachedProfile;
   // fallback while loading
-  return {name: userEmail.split('@')[0], goal:'Mejorar mi condición física general.', sport:'Fitness'};
+  return {name: userEmail.split('@')[0], weight:'',height:'',goal:'Mejorar mi condición física general.', sport:'Fitness',injuries:''};
 }
 async function fetchProfile(){
   try{
     const data=await api('GET',`/rest/v1/user_profiles?user_id=eq.${userId}&select=*&limit=1`);
     if(data&&data[0]){
-      _cachedProfile={name:data[0].name||userEmail.split('@')[0],sport:data[0].sport||'Fitness',goal:data[0].goal||'Mejorar mi condición física general.'};
+      _cachedProfile={name:data[0].name||userEmail.split('@')[0],weight:data[0].weight||'',height:data[0].height||'',sport:data[0].sport||'Fitness',goal:data[0].goal||'Mejorar mi condición física general.',injuries:data[0].injuries||''};
     }
   }catch(e){}
 }
@@ -1533,8 +1547,10 @@ async function sendAIMessage(preset) {
 
 ## Perfil del usuario
 - Nombre: ${profile.name}
+- Peso: ${profile.weight||'no especificado'} | Altura: ${profile.height||'no especificada'}
 - Deporte principal: ${profile.sport||'fitness general'}
 - Objetivo: ${profile.goal||'mejorar condición física'}
+- Lesiones/limitaciones: ${profile.injuries||'ninguna'}
 
 ## Estado actual
 - Días entrenados: ${totalDays}
@@ -1886,10 +1902,13 @@ async function loadProfileTab(){
     const data=await api('GET',`/rest/v1/user_profiles?user_id=eq.${userId}&select=*&limit=1`);
     if(data&&data[0]){
       const p=data[0];
-      _cachedProfile={name:p.name||userEmail.split('@')[0],sport:p.sport||'Fitness',goal:p.goal||''};
+      _cachedProfile={name:p.name||userEmail.split('@')[0],weight:p.weight||'',height:p.height||'',sport:p.sport||'Fitness',goal:p.goal||'',injuries:p.injuries||''};
       document.getElementById('p-name').value=p.name||'';
+      document.getElementById('p-weight').value=p.weight||'';
+      document.getElementById('p-height').value=p.height||'';
       document.getElementById('p-sport').value=p.sport||'';
       document.getElementById('p-goal').value=p.goal||'';
+      document.getElementById('p-injuries').value=p.injuries||'';
       document.getElementById('profile-avatar-big').textContent=(p.name||userEmail).charAt(0).toUpperCase();
     } else {
       document.getElementById('profile-avatar-big').textContent=userEmail.charAt(0).toUpperCase();
@@ -1900,8 +1919,11 @@ async function loadProfileTab(){
 async function saveProfile(){
   const profile = {
     name: document.getElementById('p-name').value.trim() || userEmail.split('@')[0],
+    weight: document.getElementById('p-weight').value.trim(),
+    height: document.getElementById('p-height').value.trim(),
     sport: document.getElementById('p-sport').value.trim(),
-    goal: document.getElementById('p-goal').value.trim()
+    goal: document.getElementById('p-goal').value.trim(),
+    injuries: document.getElementById('p-injuries').value.trim()
   };
   try{
     // Check if profile exists
