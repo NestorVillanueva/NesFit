@@ -655,16 +655,9 @@ function toggleAuthMode(){}
 
 function initAuthGreeting(){
   const lastName=localStorage.getItem('fitnes_last_name');
-  const lastEmail=localStorage.getItem('fitnes_last_email');
-  if(lastEmail){
-    document.getElementById('auth-email').value=lastEmail;
-  }
   const titleEl=document.getElementById('auth-mode-title');
   if(lastName){
     titleEl.innerHTML='Hola '+lastName+' 👋<span>Bienvenido de nuevo</span>';
-  } else if(lastEmail){
-    const name=lastEmail.split('@')[0];
-    titleEl.innerHTML='Hola '+name+' 👋<span>Bienvenido de nuevo</span>';
   } else {
     titleEl.innerHTML='Hola 👋<span>Tu entrenador personal</span>';
   }
