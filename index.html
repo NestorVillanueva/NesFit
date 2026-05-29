@@ -222,7 +222,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
   <div class="auth-glow"></div>
   <div class="auth-logo"><span class="fit">Fit</span><span class="nes">Nes</span></div>
   <div class="auth-card">
-    <h3 class="auth-welcome" id="auth-mode-title">Hola Nestor 👋<span>Bienvenido de nuevo</span></h3>
+    <h3 class="auth-welcome" id="auth-mode-title">Hola 👋<span>Bienvenido de nuevo</span></h3>
     <p class="err-msg" id="err-msg"></p>
     <input class="inp" id="auth-email" type="email" placeholder="Email" autocomplete="email"/>
     <input class="inp" id="auth-pass" type="password" placeholder="Contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter')doAuth()"/>
@@ -332,14 +332,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
         <div class="form-row">
           <label class="form-label">Tu nombre</label>
           <input type="text" id="p-name" class="inp" placeholder="Ej: Nestor"/>
-        </div>
-        <div class="form-row">
-          <label class="form-label">Nivel de experiencia</label>
-          <select id="p-level" class="inp">
-            <option value="Principiante (menos de 1 año)">Principiante (menos de 1 año)</option>
-            <option value="Intermedio (1-3 años)">Intermedio (1-3 años)</option>
-            <option value="Avanzado (más de 3 años)">Avanzado (más de 3 años)</option>
-          </select>
         </div>
         <div class="form-row">
           <label class="form-label">Deporte o actividad principal</label>
@@ -667,6 +659,22 @@ function toggleAuthMode(){
   document.getElementById('err-msg').style.display='none';
 }
 
+function initAuthGreeting(){
+  const lastName=localStorage.getItem('fitnes_last_name');
+  const lastEmail=localStorage.getItem('fitnes_last_email');
+  if(lastEmail){
+    document.getElementById('auth-email').value=lastEmail;
+  }
+  const titleEl=document.getElementById('auth-mode-title');
+  if(lastName){
+    titleEl.innerHTML='Hola '+lastName+' 👋<span>Bienvenido de nuevo</span>';
+  } else if(lastEmail){
+    const name=lastEmail.split('@')[0];
+    titleEl.innerHTML='Hola '+name+' 👋<span>Bienvenido de nuevo</span>';
+  } else {
+    titleEl.innerHTML='Hola 👋<span>Tu entrenador personal</span>';
+  }
+}
 async function doAuth(){
   const email=document.getElementById('auth-email').value.trim();
   const pass=document.getElementById('auth-pass').value;
@@ -681,6 +689,7 @@ async function doAuth(){
     if(!isLogin&&!data.access_token){showToast('¡Revisa tu email para confirmar la cuenta!');btn.textContent='Registrarse';btn.disabled=false;return;}
     token=data.access_token;userId=data.user?.id||getUserIdFromToken(data.access_token);userEmail=data.user?.email||email;
     localStorage.setItem('fitnes_session',JSON.stringify({token,userId,email:userEmail,refresh_token:data.refresh_token||null,saved:true}));
+    localStorage.setItem('fitnes_last_email',email);
     localStorage.setItem('fitnes_last_email',email);
     if(btn){btn.textContent=isLogin?'Entrar':'Registrarse';btn.disabled=false;}
     initApp();
@@ -702,6 +711,7 @@ async function initApp(){
   await fetchProfile();
   if(_cachedProfile&&_cachedProfile.name){
     document.getElementById('user-avatar').textContent=_cachedProfile.name.charAt(0).toUpperCase();
+    localStorage.setItem('fitnes_last_name',_cachedProfile.name);
   }
   loadToday();loadNotifSettings();
 }
@@ -1183,13 +1193,13 @@ let _cachedProfile=null;
 function getUserProfile(){
   if(_cachedProfile) return _cachedProfile;
   // fallback while loading
-  return {name: userEmail.split('@')[0], goal:'Mejorar mi condición física general.', level:'Intermedio (1-3 años)', sport:'Fitness'};
+  return {name: userEmail.split('@')[0], goal:'Mejorar mi condición física general.', sport:'Fitness'};
 }
 async function fetchProfile(){
   try{
     const data=await api('GET',`/rest/v1/user_profiles?user_id=eq.${userId}&select=*&limit=1`);
     if(data&&data[0]){
-      _cachedProfile={name:data[0].name||userEmail.split('@')[0],level:data[0].level||'Intermedio (1-3 años)',sport:data[0].sport||'Fitness',goal:data[0].goal||'Mejorar mi condición física general.'};
+      _cachedProfile={name:data[0].name||userEmail.split('@')[0],sport:data[0].sport||'Fitness',goal:data[0].goal||'Mejorar mi condición física general.'};
     }
   }catch(e){}
 }
@@ -1373,12 +1383,21 @@ async function loadAIMemory(){
   try{
     const msgs=await api('GET',`/rest/v1/ai_memory?user_id=eq.${userId}&order=created_at.asc&limit=30&select=role,content`);
     aiChatHistory=msgs.map(m=>({role:m.role,content:m.content}));
+    // Solo mostrar el botón si hay historial, no renderizar mensajes anteriores
     const chatEl=document.getElementById('ai-chat-messages');
+    chatEl.innerHTML='';
     if(msgs.length>0){
-      chatEl.innerHTML=msgs.map(m=>`<div class="msg-bubble msg-${m.role==='user'?'user':'ai'}">${m.content.split('\n').join('<br>')}</div>`).join('');
-      chatEl.scrollTop=chatEl.scrollHeight;
+      chatEl.innerHTML=`<button onclick="showAIChatHistory()" style="width:100%;background:var(--s2);border:1px solid var(--s3);border-radius:10px;color:var(--muted);cursor:pointer;font-family:Archivo,sans-serif;font-size:12px;padding:9px;display:flex;align-items:center;justify-content:center;gap:6px;margin-bottom:6px" id="btn-show-history"><i class="ti ti-history"></i> Ver conversación anterior (${msgs.length} mensajes)</button>`;
     }
   }catch(e){}
+}
+function showAIChatHistory(){
+  const btn=document.getElementById('btn-show-history');
+  if(btn)btn.remove();
+  const chatEl=document.getElementById('ai-chat-messages');
+  const histHtml=aiChatHistory.map(m=>`<div class="msg-bubble msg-${m.role==='user'?'user':'ai'}">${m.content.split('\n').join('<br>')}</div>`).join('');
+  chatEl.innerHTML=histHtml+chatEl.innerHTML;
+  chatEl.scrollTop=chatEl.scrollHeight;
 }
 
 async function saveAIMessage(role,content){
@@ -1519,13 +1538,20 @@ async function sendAIMessage(preset) {
     aiChatHistory.push({role:'user', content:msg});
 
     const systemPrompt = `Eres el asistente de entrenamiento personal de ${profile.name} en su app FitNes.
-Perfil: ${profile.level}, deporte: ${profile.sport||'general'}, objetivo: ${profile.goal}.
-Días entrenados: ${totalDays}.
-Rutinas: ${routineDetails.join(' | ')||'ninguna'}
-Ejercicios recientes: ${doneNames.slice(0,10).join(', ')||'ninguno'}
-Hábitos: ${habitsList||'ninguno'}
-Tareas: ${tasksList||'ninguna'}
-Responde en español, conciso, máximo 150 palabras. Sin JSON ni formatos especiales.`;
+
+## Perfil del usuario
+- Nombre: ${profile.name}
+- Deporte principal: ${profile.sport||'fitness general'}
+- Objetivo: ${profile.goal||'mejorar condición física'}
+
+## Estado actual
+- Días entrenados: ${totalDays}
+- Rutinas: ${routineDetails.join(' | ')||'ninguna'}
+- Ejercicios recientes: ${doneNames.slice(0,10).join(', ')||'ninguno'}
+- Hábitos activos: ${habitsList||'ninguno'}
+- Tareas pendientes: ${tasksList||'ninguna'}
+
+Responde en español, conciso, máximo 150 palabras. Sin JSON ni formatos especiales. Personaliza siempre tus respuestas al deporte y objetivo del usuario.`;
 
     // PASO 1: Respuesta conversacional
     const res = await fetch('https://rlzvprwvklsrnhxeapjo.supabase.co/functions/v1/ai-proxy', {
@@ -1868,9 +1894,8 @@ async function loadProfileTab(){
     const data=await api('GET',`/rest/v1/user_profiles?user_id=eq.${userId}&select=*&limit=1`);
     if(data&&data[0]){
       const p=data[0];
-      _cachedProfile={name:p.name||userEmail.split('@')[0],level:p.level||'Intermedio (1-3 años)',sport:p.sport||'Fitness',goal:p.goal||''};
+      _cachedProfile={name:p.name||userEmail.split('@')[0],sport:p.sport||'Fitness',goal:p.goal||''};
       document.getElementById('p-name').value=p.name||'';
-      document.getElementById('p-level').value=p.level||'Intermedio (1-3 años)';
       document.getElementById('p-sport').value=p.sport||'';
       document.getElementById('p-goal').value=p.goal||'';
       document.getElementById('profile-avatar-big').textContent=(p.name||userEmail).charAt(0).toUpperCase();
@@ -1883,7 +1908,6 @@ async function loadProfileTab(){
 async function saveProfile(){
   const profile = {
     name: document.getElementById('p-name').value.trim() || userEmail.split('@')[0],
-    level: document.getElementById('p-level').value,
     sport: document.getElementById('p-sport').value.trim(),
     goal: document.getElementById('p-goal').value.trim()
   };
