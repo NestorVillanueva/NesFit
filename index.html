@@ -1911,7 +1911,9 @@ async function saveProfile(){
       await api('POST','/rest/v1/user_profiles',{user_id:userId,...profile});
     }
     _cachedProfile=profile;
+    localStorage.setItem('fitnes_last_name',profile.name);
     document.getElementById('user-avatar').textContent=profile.name.charAt(0).toUpperCase();
+    document.getElementById('profile-avatar-big').textContent=profile.name.charAt(0).toUpperCase();
     showToast('Perfil guardado ✓');
   }catch(e){showToast('Error guardando perfil: '+e.message);}
 }
