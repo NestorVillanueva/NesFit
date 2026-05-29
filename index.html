@@ -231,7 +231,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
       <span style="font-size:13px;color:var(--muted)">Mantener sesión iniciada</span>
     </label>
     <button class="btn btn-primary" id="auth-btn" onclick="doAuth()">Entrar</button>
-    <p class="auth-toggle-link" onclick="toggleAuthMode()">¿No tienes cuenta? <span id="auth-toggle-txt">Registrarse</span></p>
   </div>
 </div>
 
@@ -1679,7 +1678,7 @@ function addEditExRow(ex){
   const st=ex&&ex.sets?ex.sets:'';
   const rp=ex&&ex.reps?ex.reps:'';
   const wt=ex&&ex.weight?String(ex.weight).replace(/"/g,"'"):'';
-  d.innerHTML='<input type="text" placeholder="Ejercicio" value="'+nm+'"/><input type="number" placeholder="Series" min="1" value="'+st+'"/><input type="number" placeholder="Reps" min="1" value="'+rp+'"/><input type="text" placeholder="Peso" value="'+wt+'"/><button onclick="document.getElementById(''+uid+'').remove()"><i class="ti ti-x"></i></button>';
+  d.innerHTML='<input type="text" placeholder="Ejercicio" value="'+nm+'"/><input type="number" placeholder="Series" min="1" value="'+st+'"/><input type="number" placeholder="Reps" min="1" value="'+rp+'"/><input type="text" placeholder="Peso" value="'+wt+'"/><button onclick="document.getElementById(\''+uid+'\').remove()"><i class="ti ti-x"></i></button>';
   document.getElementById('edit-ex-list').appendChild(d);
 }
 
