@@ -535,6 +535,37 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
   </div>
 </div>
 
+<!-- MODAL EDIT EXERCISE -->
+<div class="modal-bg" id="modal-edit-exercise">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Editar ejercicio</div>
+    <input type="hidden" id="edit-ex-id"/>
+    <div class="form-row">
+      <label class="form-label">Nombre</label>
+      <input type="text" id="edit-ex-name" class="inp"/>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+      <div class="form-row">
+        <label class="form-label">Series</label>
+        <input type="number" id="edit-ex-sets" class="inp" min="1" placeholder="—"/>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Reps</label>
+        <input type="number" id="edit-ex-reps" class="inp" min="1" placeholder="—"/>
+      </div>
+      <div class="form-row">
+        <label class="form-label">Peso</label>
+        <input type="text" id="edit-ex-weight" class="inp" placeholder="—"/>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cl" onclick="closeModals()">Cancelar</button>
+      <button class="btn-save" onclick="saveEditExercise()">Guardar</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL TEXT IMPORT -->
 <div class="modal-bg" id="modal-text-import">
   <div class="modal">
@@ -965,7 +996,7 @@ async function loadRoutines(){
     const c=document.getElementById('routines-list'),dow=todayDow();
     if(!r.length){c.innerHTML='<div class="empty">Sin rutinas. ¡Crea la primera!</div>';return;}
     c.innerHTML=r.map(rt=>`
-      <div class="routine-card">
+      <div class="routine-card" data-rid="${rt.id}" data-rdays='${JSON.stringify(rt.days||[])}'>
         <div class="routine-header" onclick="toggleRoutine('rb-${rt.id}')">
           <div>
             <div style="display:flex;align-items:center;gap:8px">
@@ -975,7 +1006,7 @@ async function loadRoutines(){
             <div class="routine-days">${DAYS_SHORT.map((d,i)=>`<span class="day-pill${rt.days&&rt.days.includes(String(i))?' active':''}">${d}</span>`).join('')}</div>
           </div>
           <div style="display:flex;gap:8px;align-items:center">
-            <button class="item-del" onclick="event.stopPropagation();openEditRoutine('${rt.id}','${rt.name}',${JSON.stringify(rt.days||[])})" title="Editar"><i class="ti ti-pencil"></i></button>
+            <button class="item-del" onclick="event.stopPropagation();editRoutineFromCard(this)" title="Editar rutina"><i class="ti ti-pencil"></i></button>
             <button class="item-del" onclick="event.stopPropagation();delRoutine('${rt.id}')" title="Eliminar"><i class="ti ti-trash"></i></button>
             <i class="ti ti-chevron-down" style="color:var(--muted)"></i>
           </div>
@@ -983,18 +1014,50 @@ async function loadRoutines(){
         <div class="routine-body" id="rb-${rt.id}">
           <button onclick="applyRoutineToday('${rt.id}')" style="width:100%;background:var(--accent);border:none;border-radius:10px;color:#060608;cursor:pointer;font-family:'Archivo Black',sans-serif;font-size:13px;padding:10px;margin-bottom:10px"><i class="ti ti-plus"></i> Aplicar rutina a hoy</button>
           ${!(rt.exercises||[]).length?'<div class="empty">Sin ejercicios</div>':(rt.exercises||[]).sort((a,b)=>a.order_index-b.order_index).map((e,i)=>`
-            <div class="ex-row">
+            <div class="ex-row" style="cursor:pointer" onclick="event.stopPropagation();openEditExercise('${e.id}','${e.name.replace(/'/g,"\'")}',${e.sets||'null'},${e.reps||'null'},'${(e.weight||'').replace(/'/g,"\'")}')">
               <div class="ex-num">${i+1}</div>
               <div class="ex-name">${e.name}</div>
               <div class="ex-detail">${e.sets?e.sets+'×'+(e.reps||'?')+(e.weight?' · '+e.weight:''):''}</div>
-              <button onclick="event.stopPropagation();delExercise('${e.id}')" class="item-del" title="Eliminar ejercicio"><i class="ti ti-x"></i></button>
+              <div style="display:flex;gap:4px">
+                <button onclick="event.stopPropagation();openEditExercise('${e.id}','${e.name.replace(/'/g,"\'")}',${e.sets||'null'},${e.reps||'null'},'${(e.weight||'').replace(/'/g,"\'")}');" class="item-del" title="Editar"><i class="ti ti-pencil"></i></button>
+                <button onclick="event.stopPropagation();delExercise('${e.id}')" class="item-del" title="Eliminar"><i class="ti ti-x"></i></button>
+              </div>
             </div>`).join('')}
         </div>
       </div>`).join('');
   }catch(e){showToast('Error cargando rutinas');}
 }
 
+function openEditExercise(id, name, sets, reps, weight){
+  document.getElementById('edit-ex-id').value=id;
+  document.getElementById('edit-ex-name').value=name;
+  document.getElementById('edit-ex-sets').value=sets||'';
+  document.getElementById('edit-ex-reps').value=reps||'';
+  document.getElementById('edit-ex-weight').value=weight||'';
+  document.getElementById('modal-edit-exercise').classList.add('open');
+}
+async function saveEditExercise(){
+  const id=document.getElementById('edit-ex-id').value;
+  const patch={
+    name:document.getElementById('edit-ex-name').value.trim(),
+    sets:parseInt(document.getElementById('edit-ex-sets').value)||null,
+    reps:parseInt(document.getElementById('edit-ex-reps').value)||null,
+    weight:document.getElementById('edit-ex-weight').value.trim()||null
+  };
+  if(!patch.name){showToast('Escribe un nombre');return;}
+  try{
+    await api('PATCH',`/rest/v1/exercises?id=eq.${id}&user_id=eq.${userId}`,patch);
+    showToast('Ejercicio actualizado ✓');closeModals();loadRoutines();
+  }catch(e){showToast('Error: '+e.message);}
+}
 function toggleRoutine(id){document.getElementById(id)?.classList.toggle('open');}
+function editRoutineFromCard(btn){
+  const card=btn.closest('[data-rid]');
+  const id=card.dataset.rid;
+  const name=card.querySelector('.routine-title').textContent;
+  const days=JSON.parse(card.dataset.rdays||'[]');
+  openEditRoutine(id,name,days);
+}
 
 async function delRoutine(id){
   if(!confirm('¿Eliminar esta rutina?'))return;
