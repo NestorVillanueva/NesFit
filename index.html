@@ -1139,10 +1139,6 @@ window.onload = async function(){
   document.getElementById('habit-days-select').addEventListener('click',e=>{const b=e.target.closest('.habit-day-btn');if(b)b.classList.toggle('sel');});
   document.getElementById('edit-days-select').addEventListener('click',e=>{const b=e.target.closest('.edit-day-btn');if(b)b.classList.toggle('sel');});
 
-  // Pre-fill saved email
-  const savedEmail=localStorage.getItem('fitnes_last_email');
-  if(savedEmail){const el=document.getElementById('auth-email');if(el)el.value=savedEmail;}
-
   const s=localStorage.getItem('fitnes_session');
   if(!s) return;
   try{
