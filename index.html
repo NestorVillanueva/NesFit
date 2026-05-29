@@ -231,6 +231,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Archiv
       <span style="font-size:13px;color:var(--muted)">Mantener sesión iniciada</span>
     </label>
     <button class="btn btn-primary" id="auth-btn" onclick="doAuth()">Entrar</button>
+    <p style="text-align:center;font-size:12px;color:var(--muted);margin-top:10px;cursor:pointer" onclick="toggleAuthMode()">¿Primera vez? <span style="color:var(--accent)" id="auth-toggle-txt">Crear cuenta</span></p>
   </div>
 </div>
 
@@ -653,9 +654,9 @@ async function authApi(path,body){
 
 function toggleAuthMode(){
   isLogin=!isLogin;
-  document.getElementById('auth-mode-title').textContent=isLogin?'Iniciar sesión':'Crear cuenta';
-  document.getElementById('auth-btn').textContent=isLogin?'Entrar':'Registrarse';
-  document.getElementById('auth-toggle-txt').textContent=isLogin?'Crear cuenta':'Iniciar sesión';
+  document.getElementById('auth-mode-title').innerHTML=isLogin?'Hola 👋<span>Bienvenido de nuevo</span>':'Nueva cuenta<span>Regístrate gratis</span>';
+  document.getElementById('auth-btn').textContent=isLogin?'Entrar':'Crear cuenta';
+  document.getElementById('auth-toggle-txt').textContent=isLogin?'Crear cuenta':'Ya tengo cuenta';
   document.getElementById('err-msg').style.display='none';
 }
 
@@ -685,15 +686,23 @@ async function doAuth(){
   try{
     const path=isLogin?'/auth/v1/token?grant_type=password':'/auth/v1/signup';
     const data=await authApi(path,{email,password:pass});
-    if(data.error||data.error_description)throw new Error(data.error_description||data.error);
-    if(!isLogin&&!data.access_token){showToast('¡Revisa tu email para confirmar la cuenta!');btn.textContent='Registrarse';btn.disabled=false;return;}
+    const errMsg=data.error_description||data.error||data.msg||data.message||(data.code&&!data.access_token?'Error '+data.code:null);
+    if(errMsg)throw new Error(errMsg);
+    if(!data.access_token){
+      if(!isLogin){showToast('¡Revisa tu email para confirmar la cuenta!');btn.textContent='Crear cuenta';btn.disabled=false;return;}
+      throw new Error('No se pudo iniciar sesión. Verifica tus datos.');
+    }
     token=data.access_token;userId=data.user?.id||getUserIdFromToken(data.access_token);userEmail=data.user?.email||email;
     localStorage.setItem('fitnes_session',JSON.stringify({token,userId,email:userEmail,refresh_token:data.refresh_token||null,saved:true}));
     localStorage.setItem('fitnes_last_email',email);
-    localStorage.setItem('fitnes_last_email',email);
-    if(btn){btn.textContent=isLogin?'Entrar':'Registrarse';btn.disabled=false;}
+    if(btn){btn.textContent=isLogin?'Entrar':'Crear cuenta';btn.disabled=false;}
     initApp();
-  }catch(e){errEl.textContent=e.message;errEl.style.display='block';if(btn){btn.textContent=isLogin?'Entrar':'Registrarse';btn.disabled=false;}}
+  }catch(e){
+    let msg=e.message;
+    if(msg.includes('Invalid login credentials')||msg.includes('invalid_grant'))msg='Email o contraseña incorrectos.';
+    if(msg.includes('User already registered'))msg='Ya tienes cuenta. Inicia sesión.';
+    errEl.textContent=msg;errEl.style.display='block';if(btn){btn.textContent=isLogin?'Entrar':'Crear cuenta';btn.disabled=false;}
+  }
 }
 
 function doLogout(){
