@@ -1455,6 +1455,31 @@ async function executeAIAction(actionLine){
       return `✅ ${exercises.length} ejercicio(s) añadido(s) a "${rts[0].name}".`;
     }
 
+    if(type==='ACTION_UPDATE_ROUTINE'){
+      // Update multiple exercises in a routine at once
+      // Format: ACTION_UPDATE_ROUTINE|routine_name|ex1_name:sets:reps:peso,...
+      const routineName=parts[1];
+      const exUpdates=(parts[2]||'').split(',').map(e=>{const p=e.split(':');return{name:p[0]?.trim(),sets:parseInt(p[1])||null,reps:parseInt(p[2])||null,weight:p[3]?.trim()||null};}).filter(e=>e.name);
+      const rts=await api('GET',`/rest/v1/routines?user_id=eq.${userId}&name=ilike.*${encodeURIComponent(routineName)}*&select=id,name,exercises(*)&limit=1`);
+      if(!rts.length)return `❌ No encontré la rutina "${routineName}".`;
+      const exs=rts[0].exercises||[];
+      let updated=0;
+      for(const upd of exUpdates){
+        const ex=exs.find(e=>e.name.toLowerCase().includes(upd.name.toLowerCase()));
+        if(!ex)continue;
+        const patch={};
+        if(upd.sets)patch.sets=upd.sets;
+        if(upd.reps)patch.reps=upd.reps;
+        if(upd.weight)patch.weight=upd.weight;
+        if(Object.keys(patch).length){
+          await api('PATCH',`/rest/v1/exercises?id=eq.${ex.id}&user_id=eq.${userId}`,patch);
+          updated++;
+        }
+      }
+      loadRoutines();
+      return `✅ ${updated} ejercicio(s) de "${rts[0].name}" actualizados.`;
+    }
+
     if(type==='ACTION_UPDATE_EXERCISE'){
       const exName=parts[1];
       const exs=await api('GET',`/rest/v1/exercises?user_id=eq.${userId}&name=ilike.*${encodeURIComponent(exName)}*&select=id,name&limit=1`);
@@ -1525,16 +1550,26 @@ async function sendAIMessage(preset) {
 
   try {
     const [logs, exercises, routines, habits, tasks] = await Promise.all([
-      api('GET', `/rest/v1/daily_logs?user_id=eq.${userId}&select=*&order=date.desc&limit=30`),
+      api('GET', `/rest/v1/daily_logs?user_id=eq.${userId}&select=*&order=date.desc&limit=50`),
       api('GET', `/rest/v1/exercises?user_id=eq.${userId}&select=*`),
       api('GET', `/rest/v1/routines?user_id=eq.${userId}&select=*,exercises(*)`),
       api('GET', `/rest/v1/habits?user_id=eq.${userId}&active=eq.true&select=*`),
       api('GET', `/rest/v1/tasks?user_id=eq.${userId}&done=eq.false&select=*&order=date.asc&limit=10`)
     ]);
+    // Build last-logged weight per exercise from daily_logs notes
+    const lastWeightMap={};
+    for(const log of logs){
+      if(log.exercise_id&&log.notes&&!lastWeightMap[log.exercise_id]){
+        try{const dm=JSON.parse(log.notes);if(dm.weight)lastWeightMap[log.exercise_id]=`${dm.weight}(${log.date})`;}catch(e){}
+      }
+    }
+    // Count completions per exercise
+    const completionMap={};
+    for(const log of logs){if(log.exercise_id&&log.done)completionMap[log.exercise_id]=(completionMap[log.exercise_id]||0)+1;}
 
     const doneExIds = logs.filter(l => l.done && l.exercise_id).map(l => l.exercise_id);
     const doneNames = exercises.filter(e => doneExIds.includes(e.id)).map(e => e.name);
-    const routineDetails = routines.map(r => `${r.name} [días: ${(r.days||[]).map(d=>['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][d]).join(',')||'sin asignar'}] ejercicios: ${(r.exercises||[]).map(e=>e.name+(e.sets?' '+e.sets+'x'+(e.reps||'?')+(e.weight?' '+e.weight:''):'')).join(', ')}`);
+    const routineDetails = routines.map(r => `${r.name} [días: ${(r.days||[]).map(d=>['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'][d]).join(',')||'sin asignar'}] ejercicios: ${(r.exercises||[]).map(e=>e.name+(e.sets?' '+e.sets+'x'+(e.reps||'?')+(e.weight?' · base:'+e.weight:'')+(lastWeightMap[e.id]?' · último:'+lastWeightMap[e.id]:'')+(completionMap[e.id]?' · '+completionMap[e.id]+'x hecho':''): '')).join(', ')}`);
     const totalDays = [...new Set(logs.map(l => l.date))].length;
     const habitsList = habits.map(h=>h.name+(h.goal?' ('+h.goal+')':'')).join(', ');
     const tasksList = tasks.map(t=>t.name+' ('+t.date+')').join(', ');
@@ -1596,7 +1631,8 @@ Responde ÚNICAMENTE con UNA línea en este formato exacto, sin texto adicional:
 ACTION_APPLY_ROUTINE|nombre_rutina|YYYY-MM-DD  (para añadir ejercicios de una rutina a un dia)
 ACTION_CREATE_ROUTINE|nombre|dias(ej:0,2,4)|ej1:series:reps:peso,ej2:series:reps:peso
 ACTION_ADD_EXERCISES|nombre_rutina|ej1:series:reps:peso,ej2:series:reps:peso
-ACTION_UPDATE_EXERCISE|nombre_ejercicio|series|reps|peso
+ACTION_UPDATE_ROUTINE|nombre_rutina|ej1:series:reps:peso_nuevo,ej2:series:reps:peso_nuevo  (actualizar pesos/series de VARIOS ejercicios a la vez)
+ACTION_UPDATE_EXERCISE|nombre_ejercicio|series|reps|peso  (actualizar UN ejercicio)
 ACTION_UPDATE_DAYS|nombre_rutina|0,1,2  (solo para cambiar los dias recurrentes de la rutina)
 ACTION_CREATE_HABIT|nombre|meta|dias
 ACTION_CREATE_TASK|nombre|YYYY-MM-DD
@@ -1712,7 +1748,26 @@ function addEditExRow(ex){
   const st=ex&&ex.sets?ex.sets:'';
   const rp=ex&&ex.reps?ex.reps:'';
   const wt=ex&&ex.weight?String(ex.weight).replace(/"/g,"'"):'';
-  d.innerHTML='<input type="text" placeholder="Ejercicio" value="'+nm+'"/><input type="number" placeholder="Series" min="1" value="'+st+'"/><input type="number" placeholder="Reps" min="1" value="'+rp+'"/><input type="text" placeholder="Peso" value="'+wt+'"/><button onclick="document.getElementById(\''+uid+'\').remove()"><i class="ti ti-x"></i></button>';
+  d.style.cssText='background:var(--s2);border-radius:10px;padding:10px;margin-bottom:8px;border:1px solid var(--s3)';
+  d.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+      <input type="text" placeholder="Nombre del ejercicio" value="${nm}" style="flex:1;background:var(--s1);border:1px solid var(--s3);border-radius:8px;color:var(--text);font-family:Archivo,sans-serif;font-size:13px;padding:8px 10px"/>
+      <button onclick="document.getElementById('${uid}').remove()" style="background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px;flex-shrink:0"><i class="ti ti-x"></i></button>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px">
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Series</div>
+        <input type="number" placeholder="—" min="1" value="${st}" style="width:100%;background:var(--s1);border:1px solid var(--s3);border-radius:8px;color:var(--text);font-family:Archivo,sans-serif;font-size:13px;padding:8px;box-sizing:border-box"/>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Reps</div>
+        <input type="number" placeholder="—" min="1" value="${rp}" style="width:100%;background:var(--s1);border:1px solid var(--s3);border-radius:8px;color:var(--text);font-family:Archivo,sans-serif;font-size:13px;padding:8px;box-sizing:border-box"/>
+      </div>
+      <div>
+        <div style="font-size:10px;color:var(--muted);text-transform:uppercase;margin-bottom:3px">Peso</div>
+        <input type="text" placeholder="—" value="${wt}" style="width:100%;background:var(--s1);border:1px solid var(--s3);border-radius:8px;color:var(--text);font-family:Archivo,sans-serif;font-size:13px;padding:8px;box-sizing:border-box"/>
+      </div>
+    </div>`;
   document.getElementById('edit-ex-list').appendChild(d);
 }
 
